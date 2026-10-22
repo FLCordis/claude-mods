@@ -1,5 +1,5 @@
 import { atom, read, update } from 'claude-code'
-import type { EngineInterface, Register, SessionRateLimit } from 'claude-code'
+import type { EngineInterface, Register, RenderElement, SessionRateLimit } from 'claude-code'
 
 import type { CacheMark, UsageWindow } from '../types'
 import { basename, clock, duration, level, limitLabel, prettyModel, stripHint, tokens } from './format'
@@ -124,7 +124,16 @@ export const register: Register = (on, options) => {
   })
 
   // A linha de dica sob o prompt vira a régua da sessão, com a dica do engine na frente.
-  on('ui.render', { component: 'PromptHint' }, async ($, e) => {
+  on('ui.render', { component: 'PromptHint' }, async ($, e, next) => {
+    // O que os outros mods desenham nesta linha (o botão do menu) vem depois da régua. A régua já
+    // traz a dica, então quem está abaixo recebe a dica vazia; sem ninguém abaixo, só a régua.
+    let tail: RenderElement | null = null
+    try {
+      tail = await next({ ...e, props: { ...e.props, hint: '' } })
+    } catch {
+      tail = null
+    }
+
     const now = (await read($, nowAtom)) || (await $.clock.now())
     const [effort, cache, windows, usageNote, model, root, usage] = await Promise.all([
       read($, effortAtom),
@@ -248,16 +257,20 @@ export const register: Register = (on, options) => {
     ]
 
     // Sem largura fixa: o engine já desenha o indicador de modo nesta linha e sabe quanto sobra.
+    // Uma linha só: a régua encolhe (cortada no fim) para o que vem depois caber.
     return (
-      <Box flexDirection="row">
-        <Text wrap="truncate-end">
-          {groups.map((group, i) => (
-            <Text key={String(i)}>
-              {i > 0 ? bar : null}
-              {group}
-            </Text>
-          ))}
-        </Text>
+      <Box flexDirection="row" flexGrow={1}>
+        <Box flexShrink={1}>
+          <Text wrap="truncate-end">
+            {groups.map((group, i) => (
+              <Text key={String(i)}>
+                {i > 0 ? bar : null}
+                {group}
+              </Text>
+            ))}
+          </Text>
+        </Box>
+        {tail}
       </Box>
     )
   })

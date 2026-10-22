@@ -1,7 +1,7 @@
 {
   "name": "terminal-hud",
-  "version": "0.1.0",
-  "description": "Blocos estilo terminal acima do prompt: modelo/effort/projeto, contexto, limites de uso e validade do cache.",
+  "version": "0.2.0",
+  "description": "Régua de uma linha sob o prompt: modelo/effort/projeto, contexto, limites de uso e validade do cache. Compõe com outros mods na mesma linha.",
   "author": {
     "name": "Flávio Magalhães",
     "url": "https://github.com/FLCordis"

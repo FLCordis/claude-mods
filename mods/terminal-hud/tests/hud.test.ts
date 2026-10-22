@@ -1,5 +1,5 @@
 import { expect, mock, test } from 'claude-code/testing'
-import type { On } from 'claude-code'
+import type { On, RenderElement } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
 
 const HINT = {
@@ -86,6 +86,28 @@ async function line($: Engine, surface: (typeof SURFACES)[number], isWorking = f
 async function coloured(ui: { findAll: (q: { type?: string; text?: RegExp }) => Promise<{ props: Record<string, unknown>; text: string }[]> }, re: RegExp) {
   return (await ui.findAll({ type: 'Text', text: re })).find(t => t.props.color !== undefined)
 }
+
+test('compõe com quem desenha abaixo: a dica vai vazia e o que voltar fica depois da régua', async ($, on) => {
+  mock.clock(on, { now: T0 })
+  world(on)
+  const seen: string[] = []
+  // Outro mod abaixo na cadeia (o menu), com o botão dele.
+  on('ui.render', { component: 'PromptHint' }, ($$, e) => {
+    seen.push(e.props.hint)
+    const { Box, Button } = $$.ui.resolve(e)
+    return h(Box, { flexGrow: 1, justifyContent: 'flex-end' }, h(Button, { key: 'menu:toggle', plain: true, label: '◆ menu', onPress: () => undefined })) as RenderElement
+  })
+  await $.session.start({ cwd: 'C:\proj', surface: 'terminal', isInteractive: true })
+  for (const surface of SURFACES) {
+    const ui = await $.ui.mount({ ...HINT, surface })
+    expect(await ui.find({ key: 'menu:toggle' })).toBeDefined()
+    const texts = (await ui.findAll({ type: 'Text' })).map(t => t.text).join('\n')
+    expect(texts).toMatch(/^\? for shortcuts  │  Opus 5\.5/)
+    await ui.unmount()
+  }
+  expect(seen.length).toBeGreaterThan(0)
+  expect(seen.every(hint => hint === '')).toBe(true)
+})
 
 test('uma linha sob o prompt: dica do engine, modelo, contexto, todos os limites e o cache', async ($, on) => {
   const clock = mock.clock(on, { now: T0 })

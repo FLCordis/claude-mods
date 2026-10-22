@@ -31,7 +31,7 @@ Uma régua de uma linha **abaixo** da caixa de texto, na linha da dica `? for sh
 | **limites** | `5h` e `sem` (semanal) vêm nos headers de cada resposta da API. As janelas por modelo (`sem fable`, `sem opus`…) vêm do endpoint de uso da conta, o mesmo que o `/usage` consulta, lido a cada minuto com a credencial da sessão (o mod recebe só um handle; o segredo fica no host). Cada uma com o tempo até o reset (↻). |
 | **cache** | Contagem regressiva até o prompt cache expirar. Verde, amarelo nos últimos 5 minutos e **vermelho** quando expira, avisando quantos tokens o próximo prompt vai reescrever. |
 
-**Configuração.** Em `/config`, o campo `cacheTtlMinutes` define a validade do cache: `60` (padrão, assinatura) ou `5` (uso excedente ou API).
+**Configuração.** Ao instalar, o Claude Code pergunta o único campo do mod, `cacheTtlMinutes` (TTL do cache, em minutos). Pode deixar em branco: vale o padrão, `60`, que é a validade do cache na assinatura. Coloque `5` só em uso excedente ou via API. Dá para mudar depois em `/config` ou na aba hud do menu.
 
 **Limitações.**
 

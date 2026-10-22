@@ -103,6 +103,14 @@ test('compõe com quem desenha abaixo: a dica vai vazia e o que voltar fica depo
     expect(await ui.find({ key: 'menu:toggle' })).toBeDefined()
     const texts = (await ui.findAll({ type: 'Text' })).map(t => t.text).join('\n')
     expect(texts).toMatch(/^\? for shortcuts  │  Opus 5\.5/)
+    // A linha divide espaço com o rótulo de modo do engine, numa coluna à esquerda: a régua começa
+    // em largura 0 e só cresce no espaço livre (senão o rótulo encolhe e o `·` dele cai para
+    // baixo); o que vem depois tem a largura dele e não encolhe.
+    const root = (await ui.drawn()) as { props?: Record<string, unknown>; children?: { props?: Record<string, unknown> }[] }
+    expect(root.props).toMatchObject({ flexDirection: 'row', flexGrow: 1 })
+    expect(root.children?.[0]?.props).toMatchObject({ flexGrow: 1, width: 0 })
+    expect(root.children?.[1]?.props).toMatchObject({ flexShrink: 0 })
+    expect(root.children?.[1]?.props?.flexGrow).toBeUndefined()
     await ui.unmount()
   }
   expect(seen.length).toBeGreaterThan(0)

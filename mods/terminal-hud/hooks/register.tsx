@@ -259,12 +259,14 @@ export const register: Register = (on, options) => {
       cachePart,
     ]
 
-    // Sem largura fixa: o engine já desenha o indicador de modo nesta linha e sabe quanto sobra.
-    // Uma linha só: só a régua encolhe (cortada no fim); o que vem depois (o botão do menu) fica
-    // inteiro e ocupa o resto da linha.
+    // A linha divide espaço com o rótulo de modo do engine (`⏵⏵ bypass permissions on ·`), numa
+    // coluna à esquerda desta árvore. Se a largura natural da árvore passar do que sobra, o
+    // rótulo encolhe e o `·` dele cai para a linha de baixo. Por isso a régua começa em largura 0
+    // e só cresce no espaço livre (cortada no fim), e o que vem depois (o botão do menu) tem a
+    // largura dele e não encolhe.
     return (
       <Box flexDirection="row" flexGrow={1}>
-        <Box flexShrink={1} overflow="hidden">
+        <Box flexGrow={1} width={0} overflow="hidden">
           <Text wrap="truncate-end">
             {groups.map((group, i) => (
               <Text key={String(i)}>
@@ -274,11 +276,7 @@ export const register: Register = (on, options) => {
             ))}
           </Text>
         </Box>
-        {tail !== null && (
-          <Box flexGrow={1} flexShrink={0}>
-            {tail}
-          </Box>
-        )}
+        {tail !== null && <Box flexShrink={0}>{tail}</Box>}
       </Box>
     )
   })

@@ -230,8 +230,11 @@ test('prévia: o foco parado num tema pinta sem guardar, e fechar o menu volta a
   expect(w.store.theme).toMatchObject({ entry: { slug: 'dracula' } })
   expect(await texts(ui)).toMatch(/prévia/)
 
-  await $.ui.press({ plugin: 'menu', key: 'menu:close' })
+  // Fechar o menu pelo botão sob o prompt desfaz a prévia.
+  const hint = await $.ui.mount({ ...PANE, component: 'PromptHint', props: { isDraft: false, isWorking: false, hint: '' } })
+  await $.ui.press({ plugin: 'menu', key: 'menu:toggle' })
   expect(JSON.parse(w.files[THEME_FILE]!)).toMatchObject({ name: 'menu: Dracula' })
+  await hint.unmount()
   await ui.unmount()
 })
 

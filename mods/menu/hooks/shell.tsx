@@ -2,8 +2,6 @@ import type { EngineInterface, RenderInput } from 'claude-code'
 
 import type { MenuTab } from '../types'
 import { Rule } from './chips'
-import { reason } from './state'
-import { closeMenu } from './toggle'
 
 /** O `e` do hook `ui.render` em `Pane`, em qualquer superfície. */
 export type PaneEvent = RenderInput<'Pane'>
@@ -27,8 +25,9 @@ export type ShellProps = {
 }
 
 /**
- * A moldura do menu: abas no topo (a ativa com fundo de destaque e o foco inicial) com o fechar
- * na ponta, régua, corpo, nota da última ação, régua e rodapé com as teclas.
+ * A moldura do menu: abas no topo (a ativa com fundo de destaque e o foco inicial), régua, corpo,
+ * nota da última ação, régua e rodapé com as teclas. O fechar é o ✕ que o próprio engine desenha
+ * na moldura do pane (e o Esc).
  *
  * A raiz tem sempre pelo menos a altura do corpo do pane: aberto acima do prompt, o pane se
  * ajusta à árvore, e uma árvore que muda de altura a cada aba tiraria os botões do lugar do clique.
@@ -69,17 +68,6 @@ export function Shell($: EngineInterface, e: PaneEvent, { tab, note, onTab, isFi
               </Button>
             )
           })}
-        </Box>
-        <Box flexGrow={1} />
-        <Box flexShrink={0}>
-          <Button
-            key="menu:close"
-            label="esc ✕"
-            plain
-            dimColor
-            role="dismiss"
-            onPress={() => void closeMenu($).catch(error => $.ui.toast(`menu: ${reason(error)}`))}
-          />
         </Box>
       </Box>
       {Rule($, e)}

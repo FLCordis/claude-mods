@@ -15,7 +15,9 @@ test('/menu abre o pane com as abas, sem segurar os toasts; a aba ativa leva o f
 
   const ui = await $.ui.mount(PANE)
   const tabs = (await ui.findAll({ type: 'Button' })).map(b => b.props.label)
-  expect(tabs).toEqual(expect.arrayContaining(['Sessão', 'Tema', 'Zen', 'orquestrador', 'hud', 'Configs', 'esc ✕']))
+  expect(tabs).toEqual(expect.arrayContaining(['Sessão', 'Tema', 'Zen', 'orquestrador', 'hud', 'Configs']))
+  // O fechar é o ✕ que o próprio engine desenha na moldura: o menu não põe outro.
+  expect(tabs).not.toContain('esc ✕')
   expect((await ui.find({ key: 'tab:sessao' }))?.props.autoFocus).toBe(true)
   expect((await ui.find({ key: 'tab:tema' }))?.props.autoFocus).toBeUndefined()
   await $.ui.press({ plugin: 'menu', key: 'tab:configs' })
@@ -23,10 +25,6 @@ test('/menu abre o pane com as abas, sem segurar os toasts; a aba ativa leva o f
   expect((await ui.find({ key: 'tab:configs' }))?.props.autoFocus).toBe(true)
   expect((await ui.find({ key: 'tab:sessao' }))?.props.autoFocus).toBeUndefined()
   expect(await ui.find({ type: 'Text', text: /esc fecha/ })).toBeDefined()
-
-  // O ✕ do menu fecha o pane.
-  await $.ui.press({ plugin: 'menu', key: 'menu:close' })
-  expect(w.panes).toEqual([])
   await ui.unmount()
 })
 
@@ -60,9 +58,13 @@ test('botão sob o prompt: fica à direita do que vem de baixo, abre e fecha o m
   await twoLines.unmount()
 
   const hint = await $.ui.mount(HINT)
-  // O que vem de baixo pode ser o nó do próprio engine, que o terminal recusa sob um Box com
-  // `overflow` (e aí desenha só a dica dele: a régua e o botão somem). Nenhum Box aqui o usa.
-  for (const box of await hint.findAll({ type: 'Box' })) expect(box.props.overflow).toBeUndefined()
+  // A linha divide espaço com o rótulo de modo do engine (`⏵⏵ … ·`), numa coluna à esquerda: se
+  // a largura natural da árvore passar da linha, o rótulo encolhe e o `·` cai para baixo. O que é
+  // elástico começa em largura 0 e só cresce no espaço livre; o botão não encolhe.
+  const root = (await hint.drawn()) as { props?: Record<string, unknown>; children?: { props?: Record<string, unknown> }[] }
+  expect(root.props).toMatchObject({ flexDirection: 'row', flexGrow: 1 })
+  expect(root.children?.[0]?.props).toMatchObject({ flexGrow: 1, width: 0 })
+  expect(root.children?.[1]?.props).toMatchObject({ flexShrink: 0 })
   await $.ui.press({ plugin: 'menu', key: 'menu:toggle' })
   expect(w.panes.map(p => p.id)).toEqual(['menu'])
   expect(w.opens[0]).toMatchObject({ id: 'menu', focus: true, closeOnEscape: true })
@@ -78,20 +80,6 @@ test('botão sob o prompt: fica à direita do que vem de baixo, abre e fecha o m
   await $.ui.press({ plugin: 'menu', key: 'menu:toggle' })
   expect(w.panes.map(p => p.id)).toEqual(['menu'])
   expect(w.opens).toHaveLength(3)
-  await hint.unmount()
-})
-
-test('fechar pelo ✕ do menu volta o botão sob o prompt a ▲', async ($, on) => {
-  const w = world(on)
-  await start($)
-  await menu($)
-  const hint = await $.ui.mount(HINT)
-  const pane = await $.ui.mount(PANE)
-  expect((await hint.find({ key: 'menu:toggle' }))?.props.label).toBe('◆ menu ▼')
-  await $.ui.press({ plugin: 'menu', key: 'menu:close' })
-  expect(w.panes).toEqual([])
-  expect((await hint.find({ key: 'menu:toggle' }))?.props.label).toBe('◆ menu ▲')
-  await pane.unmount()
   await hint.unmount()
 })
 

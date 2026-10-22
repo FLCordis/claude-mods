@@ -29,19 +29,24 @@ export async function Hint(
   const isOpen = await read($, isOpenAtom)
   const { Box, Button, Text } = $.ui.resolve(e)
   const line = hintLine(e.props.hint)
+  // A dica própria pode levar `overflow` (corta no fim); o que veio de outro mod não: se trouxer o
+  // nó do engine, o terminal recusa a árvore inteira com ele sob um Box assim.
   const rest =
     drawn !== null && drawn.type !== 'engine' ? (
       drawn
     ) : line === '' ? null : (
-      <Text color="subtle" dimColor wrap="truncate-end">
-        {line}
-      </Text>
+      <Box flexGrow={1} width={0} overflow="hidden">
+        <Text color="subtle" dimColor wrap="truncate-end">
+          {line}
+        </Text>
+      </Box>
     )
-  // Sem `overflow` em volta do que vem de baixo: quando é o nó do próprio engine (a dica), o
-  // terminal recusa a árvore inteira com ele sob um Box assim e desenha só a dica dele.
+  // A linha divide espaço com o rótulo de modo do engine (`⏵⏵ … ·`), numa coluna à esquerda: se a
+  // largura natural da árvore passar do que sobra, o rótulo encolhe e o `·` dele cai para baixo.
+  // O que vem de baixo começa em largura 0 e só cresce no espaço livre; o botão não encolhe.
   return (
-    <Box flexDirection="row" flexGrow={1} justifyContent="space-between" columnGap={1}>
-      <Box flexGrow={1} flexShrink={1}>
+    <Box flexDirection="row" flexGrow={1} columnGap={1}>
+      <Box flexGrow={1} width={0}>
         {rest}
       </Box>
       <Box flexShrink={0}>

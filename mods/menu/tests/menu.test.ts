@@ -53,6 +53,9 @@ test('botão sob o prompt: fica à direita do que vem de baixo, abre e fecha o m
   }
 
   const hint = await $.ui.mount(HINT)
+  // O que vem de baixo pode ser o nó do próprio engine, que o terminal recusa sob um Box com
+  // `overflow` (e aí desenha só a dica dele: a régua e o botão somem). Nenhum Box aqui o usa.
+  for (const box of await hint.findAll({ type: 'Box' })) expect(box.props.overflow).toBeUndefined()
   await $.ui.press({ plugin: 'menu', key: 'menu:toggle' })
   expect(w.panes.map(p => p.id)).toEqual(['menu'])
   expect(w.opens[0]).toMatchObject({ id: 'menu', focus: true, closeOnEscape: true })

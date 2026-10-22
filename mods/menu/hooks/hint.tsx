@@ -24,9 +24,11 @@ export async function Hint(
   }
   const isOpen = await read($, isOpenAtom)
   const { Box, Button } = $.ui.resolve(e)
+  // Sem `overflow` em volta do que vem de baixo: quando é o nó do próprio engine (a dica), o
+  // terminal recusa a árvore inteira com ele sob um Box assim e desenha só a dica dele.
   return (
     <Box flexDirection="row" flexGrow={1} justifyContent="space-between" columnGap={1}>
-      <Box flexGrow={1} flexShrink={1} overflow="hidden">
+      <Box flexGrow={1} flexShrink={1}>
         {rest}
       </Box>
       <Box flexShrink={0}>

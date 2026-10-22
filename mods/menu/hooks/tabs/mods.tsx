@@ -1,6 +1,6 @@
 import type { ConfigRow, EngineInterface, SessionRateLimit } from 'claude-code'
 
-import type { MenuAgentRow as AgentLike, MenuCacheMark as CacheMark } from '../../types'
+import type { MenuAgentRow as AgentLike, MenuCacheMark as CacheMark, MenuZenTask } from '../../types'
 import { ConfigRows } from '../config-rows'
 import { bar, basename, clock, duration, level, limitLabel, prettyModel, tokens } from '../format'
 import type { PaneEvent } from '../shell'
@@ -114,6 +114,57 @@ export async function Orquestrador(
       <Text color="subtle" dimColor>
         sessão: {sessionAgents} agente{sessionAgents === 1 ? '' : 's'} · {tokens(sessionTokens)} tok
       </Text>
+      {configSection($, e, rows)}
+    </Box>
+  )
+}
+
+/**
+ * A aba do zen: se está ligado, a tarefa que a faixa acompanha agora e as configs do mod (ligar e
+ * desligar, a cor da faixa). Ligar ou desligar recarrega o zen com a opção nova.
+ */
+export async function Zen($: EngineInterface, e: PaneEvent, rows: readonly ConfigRow[]): Promise<JSX.Element> {
+  const { Box, Text } = $.ui.resolve(e)
+  const taskRead = await $.state.get({ plugin: 'zen', key: 'task' } as const)
+  // As linhas `zen.*` do /config só existem com o mod carregado; a tarefa, depois do primeiro prompt.
+  const loaded = rows.length > 0 || taskRead.version > 0
+  if (!loaded) {
+    return (
+      <Box flexDirection="column">
+        <Text dimColor>zen não está carregado</Text>
+        <Text color="subtle" dimColor wrap="wrap">
+          /plugin install zen@flcordis-mods: esconde as chamadas de tool e mostra uma faixa de progresso acima do prompt.
+        </Text>
+      </Box>
+    )
+  }
+  const isOn = rows.find(r => r.key === 'zen.enabled')?.value === true
+  const task: MenuZenTask | null = taskRead.value ?? null
+  const now = await $.clock.now()
+  const done = task?.steps.filter(s => s.status === 'completed').length ?? 0
+
+  return (
+    <Box flexDirection="column">
+      <Text wrap="truncate-end">
+        <Text color={isOn ? 'success' : 'subtle'} bold>
+          {isOn ? '● ligado' : '○ desligado'}
+        </Text>
+        <Text color="subtle"> · {isOn ? 'as tools somem; a faixa acima do prompt mostra os passos' : 'as tools aparecem como sempre'}</Text>
+      </Text>
+      {task === null ? (
+        <Text color="subtle" dimColor>
+          nenhuma tarefa na faixa
+        </Text>
+      ) : (
+        <Text wrap="truncate-end">
+          <Text color="claude">{task.doneAt === null ? '✶ ' : '✓ '}</Text>
+          <Text bold>{task.title}</Text>
+          <Text color="subtle">
+            {'  '}
+            {task.steps.length === 0 ? 'sem plano' : `${done} de ${task.steps.length} passos`} · {duration((task.doneAt ?? now) - task.startedAt)}
+          </Text>
+        </Text>
+      )}
       {configSection($, e, rows)}
     </Box>
   )

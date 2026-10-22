@@ -7,7 +7,7 @@ import { Hint } from './hint'
 import { Shell } from './shell'
 import { reason } from './state'
 import { Configs } from './tabs/configs'
-import { Hud, Orquestrador } from './tabs/mods'
+import { Hud, Orquestrador, Zen } from './tabs/mods'
 import { Sessao, isEffortLevel } from './tabs/sessao'
 import { Tema, scrollThemes, themeWindow } from './tabs/tema'
 import { releaseTerminal, restoreSession, revertPreview, schedulePreview } from './themes/apply'
@@ -158,7 +158,9 @@ export const register: Register = on => {
         ? await Sessao($, e)
         : tab === 'tema'
           ? await Tema($, e, rows, commands)
-          : tab === 'orquestrador'
+          : tab === 'zen'
+            ? await Zen($, e, ownedBy('zen'))
+            : tab === 'orquestrador'
             ? await Orquestrador($, e, ownedBy('orquestrador'), commands)
             : tab === 'hud'
               ? await Hud($, e, ownedBy('terminal-hud'))

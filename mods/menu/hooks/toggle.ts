@@ -17,7 +17,7 @@ const noteAtom = atom({ plugin: 'menu', key: 'note' } as const, null)
 const isOpenAtom = atom({ plugin: 'menu', key: 'isOpen' } as const, false)
 const previewAtom = atom({ plugin: 'menu', key: 'previewSlug' } as const, null)
 
-export const TAB_IDS: readonly MenuTab[] = ['sessao', 'tema', 'orquestrador', 'hud', 'configs']
+export const TAB_IDS: readonly MenuTab[] = ['sessao', 'tema', 'zen', 'orquestrador', 'hud', 'configs']
 export const isTab = (value: unknown): value is MenuTab => TAB_IDS.some(id => id === value)
 
 /** Se o pane está aberto, pela lista do engine: vale depois de um reload e de um fechamento sem hook. */

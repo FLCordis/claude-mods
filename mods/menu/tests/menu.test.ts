@@ -15,7 +15,7 @@ test('/menu abre o pane com as abas, sem segurar os toasts; a aba ativa leva o f
 
   const ui = await $.ui.mount(PANE)
   const tabs = (await ui.findAll({ type: 'Button' })).map(b => b.props.label)
-  expect(tabs).toEqual(expect.arrayContaining(['Sessão', 'Tema', 'orquestrador', 'hud', 'Configs', 'esc ✕']))
+  expect(tabs).toEqual(expect.arrayContaining(['Sessão', 'Tema', 'Zen', 'orquestrador', 'hud', 'Configs', 'esc ✕']))
   expect((await ui.find({ key: 'tab:sessao' }))?.props.autoFocus).toBe(true)
   expect((await ui.find({ key: 'tab:tema' }))?.props.autoFocus).toBeUndefined()
   await $.ui.press({ plugin: 'menu', key: 'tab:configs' })
@@ -90,7 +90,7 @@ test('a moldura tem a mesma altura em toda aba: o corpo do pane inteiro', async 
   await start($)
   await menu($)
   const ui = await $.ui.mount(PANE)
-  for (const tab of ['sessao', 'orquestrador', 'hud', 'configs']) {
+  for (const tab of ['sessao', 'zen', 'orquestrador', 'hud', 'configs']) {
     await $.ui.press({ plugin: 'menu', key: `tab:${tab}` })
     const root = await ui.find({ type: 'Box' })
     expect(root?.props.minHeight).toBe(PANE.props.scroll.bodyRows)
@@ -320,7 +320,7 @@ test('terminal estreito: cada aba desenha em 56 colunas, com rótulos curtos e o
     props: { ...PANE.props, bodyColumns: 56, placement: 'inline' as const, scroll: { offset: 0, bodyRows: 12 } },
     viewport: { columns: 60, rows: 24, isFullscreen: false },
   }
-  for (const tab of ['sessao', 'orquestrador', 'hud', 'tema', 'configs']) {
+  for (const tab of ['sessao', 'tema', 'zen', 'orquestrador', 'hud', 'configs']) {
     const ui = await $.ui.mount(narrow)
     await $.ui.press({ plugin: 'menu', key: `tab:${tab}` })
     expect((await ui.find({ key: 'tab:orquestrador' }))?.props.label).toBe('orq')
@@ -385,6 +385,70 @@ test('effort muda mesmo quando a linha do /config recusa: a reescrita da requisi
   expect(w.sets).toEqual([])
   expect((await ui.find({ key: 'effort:high' }))?.props.variant).toBe('primary')
   expect(await ui.find({ type: 'Text', text: /effort → high/ })).toBeDefined()
+  await ui.unmount()
+})
+
+const ZEN_ROWS: ConfigRow[] = [
+  { key: 'zen.enabled', label: 'Modo Zen ligado', kind: 'boolean', value: false, provider: { plugin: 'zen', tier: 'user' }, isLocked: false },
+  {
+    key: 'zen.bandColor',
+    label: 'Cor da faixa do Zen',
+    kind: 'choice',
+    value: 'acento',
+    options: ['acento', 'azul', 'verde', 'roxo', 'arco-iris'],
+    provider: { plugin: 'zen', tier: 'user' },
+    isLocked: false,
+  },
+]
+
+test('aba Zen: sem o mod, diz como instalar; com ele, liga pelo /config e mostra a tarefa da faixa', async ($, on) => {
+  mock.clock(on, { now: Date.parse('2026-10-22T12:01:00Z') })
+  const w = world(on, { config: [...ZEN_ROWS, HUD_ROW] })
+  let withTask = false
+  on('state.get', (_$, e, next) => {
+    if (e.plugin !== 'zen') return next(e)
+    if (!withTask) return { value: { value: undefined, version: 0 } }
+    const task = {
+      title: 'Refatorar o menu',
+      startedAt: Date.parse('2026-10-22T12:00:00Z'),
+      doneAt: null,
+      steps: [
+        { id: 'a', text: 'ler', status: 'completed' },
+        { id: 'b', text: 'mudar', status: 'in_progress' },
+      ],
+    }
+    return { value: { value: task, version: 1 } }
+  })
+  await start($)
+  await menu($)
+  const ui = await $.ui.mount(PANE)
+  await $.ui.press({ plugin: 'menu', key: 'tab:zen' })
+  let joined = (await ui.findAll({ type: 'Text' })).map(t => t.text).join('|')
+  expect(joined).toMatch(/○ desligado/)
+  expect(joined).toMatch(/nenhuma tarefa na faixa/)
+  // Só as linhas do zen, não as dos outros mods.
+  expect(await ui.find({ key: 'cfg:terminal-hud.cacheTtlMinutes' })).toBeUndefined()
+  await $.ui.press({ plugin: 'menu', key: 'cfg:zen.enabled' })
+  expect(w.sets).toContainEqual({ key: 'zen.enabled', value: true })
+  await $.ui.press({ plugin: 'menu', key: 'cfg:zen.bandColor:verde' })
+  expect(w.sets).toContainEqual({ key: 'zen.bandColor', value: 'verde' })
+
+  withTask = true
+  await $.ui.press({ plugin: 'menu', key: 'tab:sessao' })
+  await $.ui.press({ plugin: 'menu', key: 'tab:zen' })
+  joined = (await ui.findAll({ type: 'Text' })).map(t => t.text).join('|')
+  expect(joined).toMatch(/Refatorar o menu/)
+  expect(joined).toMatch(/1 de 2 passos · 1m/)
+  await ui.unmount()
+})
+
+test('aba Zen sem o mod carregado', async ($, on) => {
+  world(on)
+  await start($)
+  await menu($)
+  const ui = await $.ui.mount(PANE)
+  await $.ui.press({ plugin: 'menu', key: 'tab:zen' })
+  expect(await ui.find({ type: 'Text', text: /zen não está carregado/ })).toBeDefined()
   await ui.unmount()
 })
 

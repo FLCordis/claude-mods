@@ -1,5 +1,13 @@
 /** As abas do menu, na ordem do cabeçalho. */
-export type MenuTab = 'sessao' | 'tema' | 'orquestrador' | 'hud' | 'configs'
+export type MenuTab = 'sessao' | 'tema' | 'zen' | 'orquestrador' | 'hud' | 'configs'
+
+/** A tarefa que a faixa do zen acompanha (subconjunto do contrato daquele mod). */
+export type MenuZenTask = {
+  title: string
+  startedAt: number
+  doneAt: number | null
+  steps: { id: string; text: string; status: 'pending' | 'in_progress' | 'completed' }[]
+}
 
 /** O filtro claro/escuro da lista de temas. */
 export type MenuThemeFilter = 'todos' | 'escuros' | 'claros'
@@ -79,6 +87,9 @@ declare module 'claude-code' {
       cache: MenuCacheMark | null
       windows: MenuUsageWindow[]
       usageNote: string | null
+    }
+    zen: {
+      task: MenuZenTask | null
     }
   }
 }

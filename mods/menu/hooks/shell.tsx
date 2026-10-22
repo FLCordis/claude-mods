@@ -11,6 +11,7 @@ export type PaneEvent = RenderInput<'Pane'>
 export const TABS: readonly { id: MenuTab; label: string; short: string }[] = [
   { id: 'sessao', label: 'Sessão', short: 'Sessão' },
   { id: 'tema', label: 'Tema', short: 'Tema' },
+  { id: 'zen', label: 'Zen', short: 'Zen' },
   { id: 'orquestrador', label: 'orquestrador', short: 'orq' },
   { id: 'hud', label: 'hud', short: 'hud' },
   { id: 'configs', label: 'Configs', short: 'Configs' },

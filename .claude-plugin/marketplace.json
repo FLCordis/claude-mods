@@ -9,7 +9,7 @@
     {
       "name": "terminal-hud",
       "source": "./mods/terminal-hud",
-      "description": "Blocos estilo terminal acima do prompt: modelo/effort/projeto, contexto, limites de uso e validade do cache."
+      "description": "Régua de uma linha sob o prompt: modelo/effort/projeto, contexto, limites de uso e validade do cache."
     },
     {
       "name": "orquestrador",
@@ -19,7 +19,7 @@
     {
       "name": "menu",
       "source": "./mods/menu",
-      "description": "Menu com abas acima do prompt: sessão (modelo, effort, modo), orquestrador, hud, tema e todas as configs do /config, tudo clicável."
+      "description": "Menu com abas, aberto pelo botão sob o prompt: sessão (modelo, effort, modo), 1.250 temas com troca ao vivo e fundo do Windows Terminal, zen, orquestrador, hud e todas as configs do /config, tudo clicável."
     }
   ]
 }

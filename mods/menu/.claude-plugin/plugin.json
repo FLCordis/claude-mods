@@ -1,7 +1,7 @@
 {
   "name": "menu",
-  "version": "0.1.0",
-  "description": "Menu com abas: sessão (modelo, effort, modo), orquestrador, hud e configs, tudo clicável.",
+  "version": "0.2.0",
+  "description": "Menu com abas sob o prompt: sessão (modelo, effort, modo), 1.250 temas com troca ao vivo, zen, orquestrador, hud e todas as configs, tudo clicável.",
   "author": {
     "name": "Flávio Magalhães",
     "url": "https://github.com/FLCordis"

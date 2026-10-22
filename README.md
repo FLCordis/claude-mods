@@ -39,6 +39,7 @@ Uma régua de uma linha **abaixo** da caixa de texto, na linha da dica `? for sh
 - Os limites dos headers chegam com a primeira resposta da sessão; até lá a régua mostra "limites aguardando 1ª resposta". As janelas por modelo dependem de login na conta (não aparecem com chave de API ou gateway) e de `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` desligado; quando a consulta falha, o motivo aparece no lugar delas.
 - Subagentes têm cache próprio e não renovam a contagem.
 - A linha é desenhada no terminal e no desktop; a régua corta à direita quando a janela é estreita.
+- Outros mods podem desenhar na mesma linha, depois da régua (o botão `◆ menu` fica na ponta direita): a régua encolhe para tudo caber numa linha só.
 
 ### orquestrador
 
@@ -103,10 +104,10 @@ Fora do painel: um toast quando um subagente passa de 80% do contexto, e uma lin
 
 ### menu
 
-Uma janela com abas, aberta por `/menu` ou pelo botão `≡ menu` que fica numa linha discreta acima do prompt. Abre com o teclado nela (Tab anda, Enter escolhe, `1`–`5` trocam a aba) e Esc fecha. Em tela cheia com 110 colunas ou mais ela encosta ao lado da transcrição; fora disso aparece acima do prompt e o corpo rola. A última aba aberta é lembrada entre sessões.
+Uma janela com abas, aberta pelo botão `◆ menu ▲` na ponta direita da linha **sob** o prompt (depois da régua do terminal-hud), ou por `/menu` (`/menu tema` abre direto numa aba). O mesmo botão fecha (`▼`). Abre com o teclado nela (Tab e setas andam, Enter escolhe, a aba ativa já vem focada) e Esc ou `esc ✕` fecha. A janela tem sempre a mesma altura, em toda aba, para os botões não mudarem de lugar entre um clique e outro. Em tela cheia com 110 colunas ou mais ela encosta ao lado da transcrição; fora disso aparece acima do prompt. A última aba aberta é lembrada entre sessões.
 
 ```
- ◆ Sessão   2: orq   3: hud   4: Tema   5: Configs                          ✕
+ ◆ Sessão   Tema   Zen   orquestrador   hud   Configs                  esc ✕
 ────────────────────────────────────────────────────────────────────────────
  claude-mods · claude-fable-5-1 · ctx 12%
 
@@ -135,26 +136,44 @@ Uma janela com abas, aberta por `/menu` ou pelo botão `≡ menu` que fica numa 
 
  effort → high
 ────────────────────────────────────────────────────────────────────────────
-tab move · enter escolhe · 1-5 abas · esc fecha
+tab/setas movem · enter escolhe · esc fecha
+```
+
+A aba **Tema**:
+
+```
+ Atual Tokyo Night                                              1–15 de 1.250
+ ao vivo: o foco num tema mostra a prévia, enter guarda
+ Buscar: tokyo
+ ● todos  ○ escuros  ○ claros
+ ◐ padrão escuro  ◑ padrão claro  ↺ tema original  ⟳ baixar de novo  /theme
+ ■■■■■■■ Tokyo Night ✓
+ ■■■■■■■ Tokyo Night Light ☀
+ ■■■■■■■ Tokyo Night Storm prévia
 ```
 
 | Aba | O que mostra |
 | --- | --- |
 | **Sessão** | Modelo (clique troca, via `/model`). Effort: o escolhido vale para cada requisição da sessão (o mod reescreve o effort no hook `turn.step`), fica guardado para as próximas sessões e, quando o `/config` tem a linha, ela é atualizada junto. O modo de permissão em vigor (só leitura: shift+tab troca) e o modo com que **novas sessões** começam (grava `permissions.defaultMode` no `settings.json` de usuário, preservando o resto). Ações: compactar, `/context` e `/cost`. |
+| **Tema** | Os 1.250 temas do [Gogh](https://github.com/Gogh-Co/Gogh) (Dracula, Nord, Catppuccin, Tokyo Night, Gruvbox…), baixados uma vez para `~/.claude/menu/gogh-themes.json`. Busca, filtro claro/escuro e uma lista com amostras das cores que rola sozinha (roda do mouse, setas, ou o foco andando por ela). Clique ou Enter num tema aplica: vira o tema customizado `~/.claude/themes/menu.json` (todos os tokens de cor do Claude Code, ajustados para ler no fundo) e fica em vigor como `custom:menu`. Com o foco parado num tema, a **prévia** pinta na hora sem guardar; fechar o menu ou sair da aba volta ao tema guardado. No **Windows Terminal**, o perfil da aba recebe o esquema `claude-menu` com o fundo do tema, e volta ao esquema dele quando a sessão termina. Também: padrão escuro/claro (o tema base, ao vivo), voltar ao tema de antes do menu e o seletor nativo `/theme`. |
+| **Zen** | Liga e desliga o mod `zen` e escolhe a cor da faixa (linhas `zen.*` do `/config`), e mostra a tarefa que a faixa acompanha. |
 | **orquestrador** | A sessão principal e uma linha por agente (recuo por nível, `✔`/`✖` para concluído/falhou), lidas do estado do mod orquestrador, e abaixo as configurações dele. |
 | **hud** | Modelo, effort e projeto, barra de contexto, os limites (`5h 37% ↻ 2h20m`, `sem fable 20%`) e o cache, lidos do estado do terminal-hud, e abaixo as configurações dele. |
-| **Tema** | As opções de tema do Claude Code (a linha `theme` do `/config`) como chips, uma prévia das cores do tema em uso e um chip que abre o seletor nativo (`/theme`). |
 | **Configs** | Um filtro e todas as linhas do `/config`, agrupadas por dono (Claude Code primeiro, depois cada plugin): booleano vira chip on/off, escolha vira chips (ou um seletor quando há muitas), número e texto viram campo com Enter para gravar; linha travada por política aparece com 🔒. No fim, chips que fecham o menu e abrem os painéis nativos (`plugins`, `permissions`, `mcp`, `hooks`, `memory`, `usage`…), só os que a sessão tem. |
 
-Toda ação deixa uma linha de nota acima do rodapé (`modelo → opus`, `modo padrão → plan (settings.json)`, `recusado: …`). Antes da primeira gravação no `settings.json`, o mod guarda uma cópia em `settings.json.menu.bak`.
+Toda ação deixa uma linha de nota acima do rodapé (`modelo → opus`, `modo padrão → plan (settings.json)`, `tema → Nord`, `recusado: …`). Antes da primeira gravação no `settings.json` do Claude Code ou do Windows Terminal, o mod guarda uma cópia ao lado, em `settings.json.menu.bak`.
 
 **Limitações.**
 
 - Não há API para trocar o modo de permissão da sessão em andamento: a aba mostra o modo atual e o shift+tab continua sendo o caminho. O que o menu grava é o modo das próximas sessões.
-- **Tema (pendente):** o clique num tema grava pela linha do `/config` e, se ela recusar, direto no `settings.json`; nesta versão do Claude Code a troca ao vivo ainda não acontece por esse caminho. O chip `seletor nativo (/theme)` abre o seletor do próprio Claude Code, que troca na hora.
-- As abas orquestrador e hud precisam dos mods instalados; sem eles, a aba diz que o mod não está carregado (as configurações continuam editáveis).
+- O clique no botão `◆ menu` funciona no terminal em tela cheia (onde o Claude Code repassa cliques); fora dela, use `/menu`.
+- **Tema, primeira vez:** o Claude Code só passa a acompanhar o arquivo `~/.claude/themes/menu.json` quando o tema `custom:menu` já estava em vigor ao iniciar. A primeira escolha grava `theme: "custom:menu"` no `settings.json` e pede para reiniciar o Claude Code uma vez; daí em diante toda troca (e a prévia) é ao vivo. Trocar o tema pelo `/theme` desliga isso até a próxima escolha no menu.
+- **Windows Terminal:** o mod reescreve o `settings.json` do WT (comentários do arquivo não são mantidos; o original fica no `.menu.bak`). Um perfil com `background` próprio ignora o fundo do esquema. Várias sessões no mesmo perfil dividem o esquema: a primeira que fechar devolve o original. Fora do Windows Terminal só as cores do Claude Code mudam.
+- As abas Zen, orquestrador e hud precisam dos mods instalados; sem eles, a aba diz que o mod não está carregado (as configurações continuam editáveis).
 - Comandos e painéis rodam quando a sessão fica ociosa; numa recusa, o menu fica aberto e a nota mostra a razão.
 - No celular (Claude Code mobile) os campos de texto viram só leitura; o resto funciona por toque.
+
+**Créditos.** Os temas são do [Gogh](https://github.com/Gogh-Co/Gogh) (MIT), cada um dos seus autores. O botão sob o prompt, a troca de tema ao vivo pelo arquivo customizado, o fundo do Windows Terminal e o modo Zen foram inspirados no [ClaudeMods de Jhonatan de Souza](https://github.com/Jhonatan-de-Souza/ClaudeMods); o código aqui é próprio.
 
 ## Desenvolvimento
 

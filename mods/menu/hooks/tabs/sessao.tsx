@@ -3,10 +3,11 @@ import type { Color, EngineInterface } from 'claude-code'
 
 import { Chip, ChipRow, SectionLabel } from '../chips'
 import { basename, prettyModel } from '../format'
+import { lang, t } from '../i18n'
 import { MODES, modeLabel, writeDefaultMode } from '../settings'
 import type { PaneEvent } from '../shell'
 import { refreshCache } from '../cache'
-import { note, reason, runCommand } from '../state'
+import { note, refused, runCommand } from '../state'
 import { closeMenu } from '../toggle'
 
 const modeAtom = atom({ plugin: 'menu', key: 'mode' } as const, null)
@@ -72,7 +73,7 @@ async function setDefaultMode($: EngineInterface, mode: string) {
   try {
     await note($, await writeDefaultMode($, mode))
   } catch (error) {
-    await note($, `recusado: ${reason(error)}`)
+    await refused($, error)
   }
   await refreshCache($)
 }
@@ -80,7 +81,8 @@ async function setDefaultMode($: EngineInterface, mode: string) {
 /** A aba Sessão: modelo, effort, modo em vigor, modo das novas sessões e ações rápidas. */
 export async function Sessao($: EngineInterface, e: PaneEvent): Promise<JSX.Element> {
   const { Box, Text, Button } = $.ui.resolve(e)
-  const [model, root, usage, observed, chosen, mode, userSettings] = await Promise.all([
+  const [l, model, root, usage, observed, chosen, mode, userSettings] = await Promise.all([
+    lang($),
     $.session.model(),
     $.session.root(),
     $.session.usage(),
@@ -101,7 +103,7 @@ export async function Sessao($: EngineInterface, e: PaneEvent): Promise<JSX.Elem
       </Text>
 
       <Box flexDirection="column">
-        {SectionLabel($, e, 'Modelo')}
+        {SectionLabel($, e, t(l, 'model'))}
         {ChipRow(
           $,
           e,
@@ -117,7 +119,7 @@ export async function Sessao($: EngineInterface, e: PaneEvent): Promise<JSX.Elem
         )}
         <Box flexDirection="row" columnGap={2}>
           <Button key="model:default" plain dimColor onPress={() => void runCommand($, 'model', 'default')}>
-            ↺ padrão do Claude Code
+            {t(l, 'modelDefault')}
           </Button>
           <Text color="subtle" dimColor>
             {prettyModel(model)}
@@ -127,12 +129,12 @@ export async function Sessao($: EngineInterface, e: PaneEvent): Promise<JSX.Elem
 
       <Box flexDirection="column">
         <Text>
-          <Text color="subtle">Effort </Text>
+          <Text color="subtle">{t(l, 'effort')} </Text>
           <Text color={EFFORT_COLORS[effort ?? ''] ?? 'claude'}>{effortBar(effort)}</Text>
           {effort !== null && <Text color="subtle"> {effort}</Text>}
           {chosen !== null && observed !== null && chosen !== observed && (
             <Text color="subtle" dimColor>
-              {' '}(o Claude Code mandaria {observed})
+              {' '}{t(l, 'wouldSend')(observed)}
             </Text>
           )}
         </Text>
@@ -152,26 +154,26 @@ export async function Sessao($: EngineInterface, e: PaneEvent): Promise<JSX.Elem
       </Box>
 
       <Box flexDirection="column">
-        {SectionLabel($, e, 'Rodando em')}
+        {SectionLabel($, e, t(l, 'runningIn'))}
         <Text>
           <Text color={MODE_COLORS[mode ?? ''] ?? 'warning'} bold>
             {modeLabel(mode)}
           </Text>
           <Text color="subtle" dimColor>
-            {' '}· shift+tab troca
+            {' '}{t(l, 'shiftTab')}
           </Text>
         </Text>
       </Box>
 
       <Box flexDirection="column">
-        {SectionLabel($, e, 'Novas sessões começam em')}
+        {SectionLabel($, e, t(l, 'newSessions'))}
         {ChipRow(
           $,
           e,
           MODES.filter(m => m.id !== 'dontAsk').map(m =>
             Chip($, e, {
               key: `default:${m.id}`,
-              label: m.id === startsIn ? `${m.label} · agora` : m.label,
+              label: m.id === startsIn ? `${m.label} ${t(l, 'now')}` : m.label,
               active: m.id === startsIn,
               color: m.id === startsIn ? 'warning' : (MODE_COLORS[m.id] ?? 'text'),
               onPress: () => void setDefaultMode($, m.id),
@@ -181,25 +183,25 @@ export async function Sessao($: EngineInterface, e: PaneEvent): Promise<JSX.Elem
       </Box>
 
       <Box flexDirection="column">
-        {SectionLabel($, e, 'Ações')}
+        {SectionLabel($, e, t(l, 'actions'))}
         {ChipRow($, e, [
           Chip($, e, {
             key: 'act:compact',
-            label: 'compactar',
+            label: t(l, 'compact'),
             onPress: () =>
               void (async () => {
                 try {
                   const { skip } = await $.session.compact()
-                  await note($, skip === undefined ? 'compactado' : `compactação pulada: ${String(skip)}`)
+                  await note($, skip === undefined ? t(l, 'compacted') : `${t(l, 'compactSkipped')}${String(skip)}`)
                   await closeMenu($)
                 } catch (error) {
-                  await note($, `recusado: ${reason(error)}`)
+                  await refused($, error)
                 }
                 await refreshCache($)
               })(),
           }),
-          Chip($, e, { key: 'act:context', label: 'contexto', onPress: () => void runCommand($, 'context', undefined, { close: true }) }),
-          Chip($, e, { key: 'act:cost', label: 'custo', onPress: () => void runCommand($, 'cost', undefined, { close: true }) }),
+          Chip($, e, { key: 'act:context', label: t(l, 'context'), onPress: () => void runCommand($, 'context', undefined, { close: true }) }),
+          Chip($, e, { key: 'act:cost', label: t(l, 'cost'), onPress: () => void runCommand($, 'cost', undefined, { close: true }) }),
         ])}
       </Box>
     </Box>

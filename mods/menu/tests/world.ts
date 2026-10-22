@@ -11,7 +11,7 @@ export const PANE = {
     isFocused: true,
     bodyColumns: 72,
     placement: 'inline',
-    scroll: { offset: 0, bodyRows: 20 },
+    scroll: { offset: 0, bodyRows: 24 },
     view: {},
   },
   viewport: { columns: 120, rows: 40, isFullscreen: true },

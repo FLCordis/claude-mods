@@ -47,6 +47,29 @@ export function Rule($: EngineInterface, e: PaneEvent, columns: number = e.props
   )
 }
 
+/** As cores do tema que uma opção de cor nomeia (as da faixa do zen), seis amostras; ou null. */
+export function swatches(option: string): Color[] | null {
+  const one = SWATCH_COLORS[option]
+  if (one !== undefined) return Array<Color>(6).fill(one)
+  if (option === 'arco-iris' || option === 'rainbow') return ['rainbow_red', 'rainbow_orange', 'rainbow_yellow', 'rainbow_green', 'rainbow_blue', 'rainbow_violet']
+  return null
+}
+
+const SWATCH_COLORS: Record<string, Color> = {
+  acento: 'claude',
+  accent: 'claude',
+  azul: 'suggestion',
+  blue: 'suggestion',
+  verde: 'success',
+  green: 'success',
+  roxo: 'autoAccept',
+  purple: 'autoAccept',
+  amarelo: 'warning',
+  yellow: 'warning',
+  vermelho: 'error',
+  red: 'error',
+}
+
 /** O rótulo apagado de uma seção (`Modelo`, `Effort`). */
 export function SectionLabel($: EngineInterface, e: PaneEvent, text: string): JSX.Element {
   const { Text } = $.ui.resolve(e)

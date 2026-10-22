@@ -15,9 +15,13 @@ test('/menu abre o pane com as abas, sem segurar os toasts; a aba ativa leva o f
 
   const ui = await $.ui.mount(PANE)
   const tabs = (await ui.findAll({ type: 'Button' })).map(b => b.props.label)
-  expect(tabs).toEqual(expect.arrayContaining(['Sessão', 'Tema', 'Zen', 'orquestrador', 'hud', 'Configs']))
-  // O fechar é o ✕ que o próprio engine desenha na moldura: o menu não põe outro.
-  expect(tabs).not.toContain('esc ✕')
+  expect(tabs).toEqual(expect.arrayContaining(['Sessão', 'Tema', 'Foco', 'orquestrador', 'Uso', 'Configs']))
+  // `esc ×` na ponta da barra de abas fecha o menu, como o Esc.
+  expect(tabs).toContain('esc ×')
+  // A aba ativa fica numa caixa que se emenda na régua: `╭──╮` em cima, `╯  ╰──` embaixo.
+  const texts = (await ui.findAll({ type: 'Text' })).map(t => t.text)
+  expect(texts[0]).toMatch(/^╭─+╮$/)
+  expect(texts.find(t => /^╯ +╰─+$/.test(t))).toBeDefined()
   expect((await ui.find({ key: 'tab:sessao' }))?.props.autoFocus).toBe(true)
   expect((await ui.find({ key: 'tab:tema' }))?.props.autoFocus).toBeUndefined()
   await $.ui.press({ plugin: 'menu', key: 'tab:configs' })
@@ -25,15 +29,76 @@ test('/menu abre o pane com as abas, sem segurar os toasts; a aba ativa leva o f
   expect((await ui.find({ key: 'tab:configs' }))?.props.autoFocus).toBe(true)
   expect((await ui.find({ key: 'tab:sessao' }))?.props.autoFocus).toBeUndefined()
   expect(await ui.find({ type: 'Text', text: /esc fecha/ })).toBeDefined()
+  // Com a aba Configs ativa, a caixa se desloca para depois de Sessão, Tema, Foco, orquestrador e Uso.
+  const left = 'Sessão'.length + 2 + 'Tema'.length + 2 + 'Foco'.length + 2 + 'orquestrador'.length + 2 + 'Uso'.length + 2
+  const moved = (await ui.findAll({ type: 'Text' })).map(t => t.text)
+  expect(moved[0]).toBe(`${' '.repeat(left)}╭${'─'.repeat('◆ Configs'.length + 2)}╮`)
+  await $.ui.press({ plugin: 'menu', key: 'menu:close' })
+  expect(w.panes).toEqual([])
   await ui.unmount()
 })
 
-test('/menu com o nome de uma aba abre direto nela', async ($, on) => {
+test('/menu com o nome de uma aba abre direto nela, inclusive pelos nomes antigos e em inglês', async ($, on) => {
   world(on)
   await start($)
-  await $.command.run({ command: 'menu', args: 'configs', origin: { kind: 'composer' }, presentation: { isFullscreen: true, columns: 120 } })
+  const open = (args: string) => $.command.run({ command: 'menu', args, origin: { kind: 'composer' }, presentation: { isFullscreen: true, columns: 120 } })
+  await open('configs')
   const ui = await $.ui.mount(PANE)
   expect((await ui.find({ key: 'tab:configs' }))?.props.variant).toBe('primary')
+  await open('hud')
+  expect((await ui.find({ key: 'tab:uso' }))?.props.variant).toBe('primary')
+  await open('zen')
+  expect((await ui.find({ key: 'tab:foco' }))?.props.variant).toBe('primary')
+  await open('Usage')
+  expect((await ui.find({ key: 'tab:uso' }))?.props.variant).toBe('primary')
+  await ui.unmount()
+})
+
+test('idioma: o seletor no rodapé troca todos os textos, fica guardado e vale na próxima sessão', async ($, on) => {
+  mock.clock(on, { now: Date.parse('2026-10-22T12:00:00Z') })
+  const w = world(on, { config: [...ZEN_ROWS] })
+  await start($)
+  await menu($)
+  const ui = await $.ui.mount(PANE)
+  expect((await ui.find({ key: 'lang:pt' }))?.props.variant).toBe('primary')
+  await $.ui.press({ plugin: 'menu', key: 'lang:en' })
+  expect(w.store.lang).toBe('en')
+  expect((await ui.find({ key: 'lang:en' }))?.props.variant).toBe('primary')
+  const labels = (await ui.findAll({ type: 'Button' })).map(b => b.props.label)
+  expect(labels).toEqual(expect.arrayContaining(['Session', 'Theme', 'Focus', 'orchestrator', 'Usage', 'Settings']))
+  let joined = (await ui.findAll({ type: 'Text' })).map(t => t.text).join('|')
+  expect(joined).toMatch(/Model\|/)
+  expect(joined).toMatch(/New sessions start in/)
+  expect(joined).toMatch(/esc closes/)
+  // A nota de uma ação também sai em inglês.
+  await $.ui.press({ plugin: 'menu', key: 'tab:foco' })
+  joined = (await ui.findAll({ type: 'Text' })).map(t => t.text).join('|')
+  expect(joined).toMatch(/○ off/)
+  expect(joined).toMatch(/Configuration/)
+  await ui.unmount()
+
+  // Próxima sessão: o idioma guardado já vale ao abrir.
+  await start($)
+  const again = await $.ui.mount(PANE)
+  expect((await again.find({ key: 'tab:sessao' }))?.props.label).toBe('Session')
+  await again.unmount()
+})
+
+test('opção de cor: uma linha por cor com a amostra, e ✓ na escolhida', async ($, on) => {
+  mock.clock(on, { now: Date.parse('2026-10-22T12:00:00Z') })
+  const w = world(on, { config: [...ZEN_ROWS] })
+  await start($)
+  await menu($)
+  const ui = await $.ui.mount(PANE)
+  await $.ui.press({ plugin: 'menu', key: 'tab:foco' })
+  const verde = await ui.find({ key: 'cfg:zen.bandColor:verde' })
+  expect(verde?.props.variant).toBe('secondary')
+  expect((await ui.find({ key: 'cfg:zen.bandColor:acento' }))?.props.variant).toBe('primary')
+  const swatch = (await ui.findAll({ type: 'Text', text: /■/ })).map(t => t.props.color)
+  expect(swatch).toEqual(expect.arrayContaining(['claude', 'suggestion', 'success', 'autoAccept', 'rainbow_red']))
+  expect(await ui.find({ type: 'Text', text: /✓/ })).toBeDefined()
+  await $.ui.press({ plugin: 'menu', key: 'cfg:zen.bandColor:verde' })
+  expect(w.sets).toContainEqual({ key: 'zen.bandColor', value: 'verde' })
   await ui.unmount()
 })
 
@@ -91,7 +156,7 @@ test('a moldura tem a mesma altura em toda aba: o corpo do pane inteiro', async 
   await start($)
   await menu($)
   const ui = await $.ui.mount(PANE)
-  for (const tab of ['sessao', 'zen', 'orquestrador', 'hud', 'configs']) {
+  for (const tab of ['sessao', 'foco', 'orquestrador', 'uso', 'configs']) {
     await $.ui.press({ plugin: 'menu', key: `tab:${tab}` })
     const root = await ui.find({ type: 'Box' })
     expect(root?.props.minHeight).toBe(PANE.props.scroll.bodyRows)
@@ -216,7 +281,7 @@ test('abas de mod: aviso quando o mod não está carregado, e as configs dele ed
   expect(w.sets).toContainEqual({ key: 'orquestrador.placement', value: 'pane' })
   expect(await ui.find({ type: 'Text', text: /Onde o painel aparece → pane/ })).toBeDefined()
 
-  await $.ui.press({ plugin: 'menu', key: 'tab:hud' })
+  await $.ui.press({ plugin: 'menu', key: 'tab:uso' })
   expect(await ui.find({ type: 'Text', text: /terminal-hud não está carregado/ })).toBeDefined()
   expect(await ui.find({ key: 'cfg:orquestrador.placement:pane' })).toBeUndefined()
   await $.ui.input({ plugin: 'menu', key: 'cfg:terminal-hud.cacheTtlMinutes', text: '5' })
@@ -226,7 +291,7 @@ test('abas de mod: aviso quando o mod não está carregado, e as configs dele ed
   await ui.unmount()
 })
 
-test('abas de mod: árvore do orquestrador e régua do hud lidas do estado dos mods', async ($, on) => {
+test('abas de mod: árvore do orquestrador e régua do Uso lidas do estado dos mods', async ($, on) => {
   mock.clock(on, { now: Date.parse('2026-10-22T12:00:00Z') })
   world(on)
   on('state.get', (_$, e, next) => {
@@ -262,7 +327,7 @@ test('abas de mod: árvore do orquestrador e régua do hud lidas do estado dos m
   expect(joined).toMatch(/✔ Explorar schema/)
   expect(joined).toMatch(/sessão: 4 agentes · 473k tok/)
 
-  await $.ui.press({ plugin: 'menu', key: 'tab:hud' })
+  await $.ui.press({ plugin: 'menu', key: 'tab:uso' })
   joined = (await ui.findAll({ type: 'Text' })).map(t => t.text).join('|')
   expect(joined).toMatch(/Fable 5\.1/)
   expect(joined).toMatch(/ctx .*1%/)
@@ -321,7 +386,7 @@ test('terminal estreito: cada aba desenha em 56 colunas, com rótulos curtos e o
     props: { ...PANE.props, bodyColumns: 56, placement: 'inline' as const, scroll: { offset: 0, bodyRows: 12 } },
     viewport: { columns: 60, rows: 24, isFullscreen: false },
   }
-  for (const tab of ['sessao', 'tema', 'zen', 'orquestrador', 'hud', 'configs']) {
+  for (const tab of ['sessao', 'tema', 'foco', 'orquestrador', 'uso', 'configs']) {
     const ui = await $.ui.mount(narrow)
     await $.ui.press({ plugin: 'menu', key: `tab:${tab}` })
     expect((await ui.find({ key: 'tab:orquestrador' }))?.props.label).toBe('orq')
@@ -402,7 +467,7 @@ const ZEN_ROWS: ConfigRow[] = [
   },
 ]
 
-test('aba Zen: sem o mod, diz como instalar; com ele, liga pelo /config e mostra a tarefa da faixa', async ($, on) => {
+test('aba Foco: sem o mod, diz como instalar; com ele, liga pelo /config e mostra a tarefa da faixa', async ($, on) => {
   mock.clock(on, { now: Date.parse('2026-10-22T12:01:00Z') })
   const w = world(on, { config: [...ZEN_ROWS, HUD_ROW] })
   let withTask = false
@@ -423,7 +488,7 @@ test('aba Zen: sem o mod, diz como instalar; com ele, liga pelo /config e mostra
   await start($)
   await menu($)
   const ui = await $.ui.mount(PANE)
-  await $.ui.press({ plugin: 'menu', key: 'tab:zen' })
+  await $.ui.press({ plugin: 'menu', key: 'tab:foco' })
   let joined = (await ui.findAll({ type: 'Text' })).map(t => t.text).join('|')
   expect(joined).toMatch(/○ desligado/)
   expect(joined).toMatch(/nenhuma tarefa na faixa/)
@@ -436,19 +501,19 @@ test('aba Zen: sem o mod, diz como instalar; com ele, liga pelo /config e mostra
 
   withTask = true
   await $.ui.press({ plugin: 'menu', key: 'tab:sessao' })
-  await $.ui.press({ plugin: 'menu', key: 'tab:zen' })
+  await $.ui.press({ plugin: 'menu', key: 'tab:foco' })
   joined = (await ui.findAll({ type: 'Text' })).map(t => t.text).join('|')
   expect(joined).toMatch(/Refatorar o menu/)
   expect(joined).toMatch(/1 de 2 passos · 1m/)
   await ui.unmount()
 })
 
-test('aba Zen sem o mod carregado', async ($, on) => {
+test('aba Foco sem o mod carregado', async ($, on) => {
   world(on)
   await start($)
   await menu($)
   const ui = await $.ui.mount(PANE)
-  await $.ui.press({ plugin: 'menu', key: 'tab:zen' })
+  await $.ui.press({ plugin: 'menu', key: 'tab:foco' })
   expect(await ui.find({ type: 'Text', text: /zen não está carregado/ })).toBeDefined()
   await ui.unmount()
 })

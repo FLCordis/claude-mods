@@ -1,5 +1,7 @@
 import type { EngineInterface } from 'claude-code'
 
+import { lang, t } from './i18n'
+
 /** Os modos de permissão do Claude Code, com o rótulo que o menu desenha. */
 export const MODES: readonly { id: string; label: string }[] = [
   { id: 'default', label: 'ask' },
@@ -87,7 +89,7 @@ async function rewriteUserSettings($: EngineInterface, change: (text: string) =>
 /** Grava o modo padrão das novas sessões e devolve a nota para o menu; lança quando não pode gravar. */
 export async function writeDefaultMode($: EngineInterface, mode: string): Promise<string> {
   await rewriteUserSettings($, text => withDefaultMode(text, mode))
-  return `modo padrão → ${modeLabel(mode)} (settings.json)`
+  return t(await lang($), 'defaultModeSet')(modeLabel(mode))
 }
 
 /** Grava uma chave de primeiro nível do settings.json de usuário; lança quando não pode gravar. */

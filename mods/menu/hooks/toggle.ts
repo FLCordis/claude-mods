@@ -16,8 +16,28 @@ const tabAtom = atom({ plugin: 'menu', key: 'tab' } as const, 'sessao')
 const noteAtom = atom({ plugin: 'menu', key: 'note' } as const, null)
 const isOpenAtom = atom({ plugin: 'menu', key: 'isOpen' } as const, false)
 
-export const TAB_IDS: readonly MenuTab[] = ['sessao', 'tema', 'zen', 'orquestrador', 'hud', 'configs']
+export const TAB_IDS: readonly MenuTab[] = ['sessao', 'tema', 'foco', 'orquestrador', 'uso', 'configs']
 export const isTab = (value: unknown): value is MenuTab => TAB_IDS.some(id => id === value)
+
+/** Os nomes que `/menu <aba>` aceita além dos ids: em inglês e os nomes antigos (zen, hud). */
+const TAB_ALIASES: Record<string, MenuTab> = {
+  session: 'sessao',
+  theme: 'tema',
+  zen: 'foco',
+  focus: 'foco',
+  orq: 'orquestrador',
+  orchestrator: 'orquestrador',
+  hud: 'uso',
+  usage: 'uso',
+  settings: 'configs',
+  config: 'configs',
+}
+
+/** A aba que um argumento do `/menu` nomeia, ou undefined. */
+export function tabNamed(arg: string): MenuTab | undefined {
+  const name = arg.trim().toLowerCase()
+  return isTab(name) ? name : TAB_ALIASES[name]
+}
 
 /** Se o pane está aberto, pela lista do engine: vale depois de um reload e de um fechamento sem hook. */
 export async function isMenuOpen($: EngineInterface): Promise<boolean> {

@@ -1,9 +1,12 @@
 import type { ConfigRow, ConfigValue, EngineInterface } from 'claude-code'
 
-import { Chip, ChipRow } from './chips'
+import type { MenuLang } from '../types'
+
+import { Chip, ChipRow, swatches } from './chips'
+import { lang, t } from './i18n'
 import type { PaneEvent } from './shell'
 import { refreshCache } from './cache'
-import { note, reason } from './state'
+import { note, refused } from './state'
 
 /** Acima disso uma linha `choice` vira um Select em vez de uma fileira de chips. */
 const MAX_CHOICE_CHIPS = 6
@@ -12,10 +15,10 @@ const MAX_CHOICE_CHIPS = 6
 export async function setConfig($: EngineInterface, row: ConfigRow, value: ConfigValue, noteLabel: string = row.label) {
   try {
     const result = await $.config.set({ key: row.key, value })
-    if ('deny' in result && result.deny !== undefined) await note($, `recusado: ${result.deny}`)
+    if ('deny' in result && result.deny !== undefined) await note($, `${t(await lang($), 'refused')}${result.deny}`)
     else await note($, `${noteLabel} → ${String(value)}`)
   } catch (error) {
-    await note($, `recusado: ${reason(error)}`)
+    await refused($, error)
   }
   await refreshCache($)
 }
@@ -24,7 +27,7 @@ export async function setConfig($: EngineInterface, row: ConfigRow, value: Confi
 async function submitNumber($: EngineInterface, row: ConfigRow, text: string) {
   const n = Number(text.trim())
   if (text.trim() === '' || Number.isNaN(n)) {
-    await note($, `${row.label}: "${text}" não é um número`)
+    await note($, t(await lang($), 'notANumber')(row.label, text))
     await refreshCache($)
     return
   }
@@ -32,9 +35,9 @@ async function submitNumber($: EngineInterface, row: ConfigRow, text: string) {
 }
 
 /** As linhas do /config, cada uma com o controle do seu tipo: chip liga/desliga, chips de escolha, campo. */
-export function ConfigRows($: EngineInterface, e: PaneEvent, rows: readonly ConfigRow[]): JSX.Element {
+export function ConfigRows($: EngineInterface, e: PaneEvent, rows: readonly ConfigRow[], l: MenuLang): JSX.Element {
   const els = $.ui.resolve(e)
-  const { Box, Text } = els
+  const { Box, Text, Button } = els
   // Uma superfície sem campo de texto (o celular) mostra o valor; a edição fica para o /config.
   const Input = 'Input' in els ? els.Input : undefined
   const Select = 'Select' in els ? els.Select : undefined
@@ -72,6 +75,29 @@ export function ConfigRows($: EngineInterface, e: PaneEvent, rows: readonly Conf
     }
     if (row.kind === 'choice') {
       const options = row.options ?? []
+      // Uma escolha de cor: uma linha por opção, com a amostra, o nome e ✓ na escolhida.
+      const colors = options.map(swatches)
+      if (options.length > 0 && colors.every(c => c !== null)) {
+        return (
+          <Box key={`row:${row.key}`} flexDirection="column">
+            {label(row)}
+            {options.map((option, i) => {
+              const chosen = option === row.value
+              return (
+                <Button key={`cfg:${row.key}:${option}`} plain label={option} variant={chosen ? 'primary' : 'secondary'} onPress={() => void setConfig($, row, option)}>
+                  {colors[i]!.map((c, j) => (
+                    <Text key={String(j)} color={c}>
+                      {'■ '}
+                    </Text>
+                  ))}
+                  <Text bold={chosen}>{option}</Text>
+                  {chosen && <Text color="warning"> ✓</Text>}
+                </Button>
+              )
+            })}
+          </Box>
+        )
+      }
       if (options.length > MAX_CHOICE_CHIPS && Select !== undefined) {
         return (
           <Box key={`row:${row.key}`} flexDirection="column">
@@ -113,7 +139,7 @@ export function ConfigRows($: EngineInterface, e: PaneEvent, rows: readonly Conf
           <Input
             key={`cfg:${row.key}`}
             value={String(row.value)}
-            submitLabel="gravar"
+            submitLabel={t(l, 'save')}
             onSubmit={(text: string) => void (row.kind === 'number' ? submitNumber($, row, text) : setConfig($, row, text))}
           />
         )}

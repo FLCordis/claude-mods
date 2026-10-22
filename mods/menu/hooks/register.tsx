@@ -4,16 +4,17 @@ import type { Register } from 'claude-code'
 import type { MenuTab } from '../types'
 import { refreshCache } from './cache'
 import { Hint } from './hint'
+import { lang, restoreLang, t } from './i18n'
 import { Shell } from './shell'
 import { reason } from './state'
 import { Configs } from './tabs/configs'
-import { Hud, Orquestrador, Zen } from './tabs/mods'
+import { Foco, Orquestrador, Uso } from './tabs/mods'
 import { Sessao, isEffortLevel } from './tabs/sessao'
 import { Tema, scrollThemes, themeWindow } from './tabs/tema'
 import { releaseTerminal, restoreSession, revertPreview, schedulePreview } from './themes/apply'
 import { ensureCatalog, loadCatalog } from './themes/catalog'
 import { HEARTBEAT_MS, heartbeat } from './themes/wt'
-import { PANE, isTab, openMenu, syncOpen } from './toggle'
+import { PANE, openMenu, syncOpen, tabNamed } from './toggle'
 
 const tabAtom = atom({ plugin: 'menu', key: 'tab' } as const, 'sessao')
 const noteAtom = atom({ plugin: 'menu', key: 'note' } as const, null)
@@ -28,8 +29,8 @@ export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     await $.command.register({
       name: 'menu',
-      description: 'Abre o menu com abas: sessão, tema, mods e configs',
-      argumentHint: '[sessao|tema|orquestrador|hud|configs]',
+      description: 'Abre o menu com abas: sessão, tema, foco, orquestrador, uso e configs',
+      argumentHint: '[sessao|tema|foco|orquestrador|uso|configs]',
     })
 
     // Modo e effort antes do primeiro hook clássico: o que a sessão já tem configurado.
@@ -47,6 +48,8 @@ export const register: Register = on => {
       const kept = await $.store.get('effort')
       if (typeof kept === 'string' && kept !== '') await update($, effortChosenAtom, () => kept)
     }
+    // O idioma escolhido numa sessão anterior.
+    await restoreLang($)
     // Depois de um reload o pane pode seguir aberto (ou ter fechado sem o hook ver).
     await syncOpen($)
     // O catálogo de temas mora no módulo: um reload o zera, e o disco o devolve. Sem catálogo
@@ -69,10 +72,10 @@ export const register: Register = on => {
 
   // `/menu` abre (ou traz para a frente) o menu; `/menu tema` abre direto numa aba.
   on('command.run', { command: 'menu' }, async ($, e) => {
-    const arg = e.args.trim().toLowerCase()
-    const opened = await openMenu($, isTab(arg) ? arg : undefined)
+    const opened = await openMenu($, tabNamed(e.args))
+    const l = await lang($)
     return {
-      text: opened.isPlaced ? 'Menu aberto. Esc fecha.' : `Menu aberto, aguardando espaço: ${opened.reason}`,
+      text: opened.isPlaced ? t(l, 'menuOpen') : `${t(l, 'menuWaiting')}${opened.reason}`,
     }
   })
 
@@ -137,8 +140,9 @@ export const register: Register = on => {
   }).catch(($, e, next) => next(e))
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
-    const [tab, noteText, rows, commands] = await Promise.all([
+    const [tab, l, noteText, rows, commands] = await Promise.all([
       read($, tabAtom),
+      lang($),
       read($, noteAtom),
       read($, configRowsAtom),
       read($, commandsAtom),
@@ -160,13 +164,13 @@ export const register: Register = on => {
         ? await Sessao($, e)
         : tab === 'tema'
           ? await Tema($, e, rows, commands)
-          : tab === 'zen'
-            ? await Zen($, e, ownedBy('zen'))
+          : tab === 'foco'
+            ? await Foco($, e, ownedBy('zen'))
             : tab === 'orquestrador'
             ? await Orquestrador($, e, ownedBy('orquestrador'), commands)
-            : tab === 'hud'
-              ? await Hud($, e, ownedBy('terminal-hud'))
+            : tab === 'uso'
+              ? await Uso($, e, ownedBy('terminal-hud'))
               : await Configs($, e, rows, commands)
-    return Shell($, e, { tab, note: noteText, onTab, children: body })
+    return Shell($, e, { tab, lang: l, note: noteText, onTab, children: body })
   })
 }

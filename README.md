@@ -31,7 +31,7 @@ Uma régua de uma linha **abaixo** da caixa de texto, na linha da dica `? for sh
 | **limites** | `5h` e `sem` (semanal) vêm nos headers de cada resposta da API. As janelas por modelo (`sem fable`, `sem opus`…) vêm do endpoint de uso da conta, o mesmo que o `/usage` consulta, lido a cada minuto com a credencial da sessão (o mod recebe só um handle; o segredo fica no host). Cada uma com o tempo até o reset (↻). |
 | **cache** | Contagem regressiva até o prompt cache expirar. Verde, amarelo nos últimos 5 minutos e **vermelho** quando expira, avisando quantos tokens o próximo prompt vai reescrever. |
 
-**Configuração.** Ao instalar, o Claude Code pergunta o único campo do mod, `cacheTtlMinutes` (TTL do cache, em minutos). Pode deixar em branco: vale o padrão, `60`, que é a validade do cache na assinatura. Coloque `5` só em uso excedente ou via API. Dá para mudar depois em `/config` ou na aba hud do menu.
+**Configuração.** Ao instalar, o Claude Code pergunta o único campo do mod, `cacheTtlMinutes` (TTL do cache, em minutos). Pode deixar em branco: vale o padrão, `60`, que é a validade do cache na assinatura. Coloque `5` só em uso excedente ou via API. Dá para mudar depois em `/config` ou na aba Uso do menu.
 
 **Limitações.**
 
@@ -104,11 +104,12 @@ Fora do painel: um toast quando um subagente passa de 80% do contexto, e uma lin
 
 ### menu
 
-Uma janela com abas, aberta pelo botão `◆ menu ▲` na ponta direita da linha **sob** o prompt (depois da régua do terminal-hud), ou por `/menu` (`/menu tema` abre direto numa aba). O mesmo botão fecha (`▼`). Abre com o teclado nela (Tab e setas andam, Enter escolhe, a aba ativa já vem focada) e Esc ou `esc ✕` fecha. A janela tem sempre a mesma altura, em toda aba, para os botões não mudarem de lugar entre um clique e outro. Em tela cheia com 110 colunas ou mais ela encosta ao lado da transcrição; fora disso aparece acima do prompt. A última aba aberta é lembrada entre sessões.
+Uma janela com abas, aberta pelo botão `◆ menu ▲` na ponta direita da linha **sob** o prompt (depois da régua do terminal-hud), ou por `/menu` (`/menu tema` abre direto numa aba; os nomes em inglês e os antigos, `zen` e `hud`, também valem). O mesmo botão fecha (`▼`). As abas são desenhadas como as de um navegador: a ativa numa caixa que se emenda na régua, as outras só em texto, e `esc ×` na ponta. Abre com o teclado nela (Tab e setas andam, Enter escolhe, a aba ativa já vem focada) e Esc ou `esc ×` fecha. A janela tem sempre a mesma altura, em toda aba, para os botões não mudarem de lugar entre um clique e outro. Em tela cheia com 110 colunas ou mais ela encosta ao lado da transcrição; fora disso aparece acima do prompt. A última aba aberta e o idioma (Português ou English, no rodapé) são lembrados entre sessões.
 
 ```
- ◆ Sessão   Tema   Zen   orquestrador   hud   Configs                  esc ✕
-────────────────────────────────────────────────────────────────────────────
+ ╭──────────╮
+ │ ◆ Sessão │  Tema  Foco  orquestrador  Uso  Configs                   esc ×
+─╯          ╰───────────────────────────────────────────────────────────────
  claude-mods · claude-fable-5-1 · ctx 12%
 
  Modelo
@@ -136,7 +137,10 @@ Uma janela com abas, aberta pelo botão `◆ menu ▲` na ponta direita da linha
 
  effort → high
 ────────────────────────────────────────────────────────────────────────────
-tab/setas movem · enter escolhe · esc fecha
+          ╭───────────╮ ╭─────────╮
+ Idioma   │ Português │ │ English │
+          ╰───────────╯ ╰─────────╯
+ tab/setas movem · enter escolhe · roda rola · esc fecha
 ```
 
 A aba **Tema**:
@@ -156,9 +160,9 @@ A aba **Tema**:
 | --- | --- |
 | **Sessão** | Modelo (clique troca, via `/model`). Effort: o escolhido vale para cada requisição da sessão (o mod reescreve o effort no hook `turn.step`), fica guardado para as próximas sessões e, quando o `/config` tem a linha, ela é atualizada junto. O modo de permissão em vigor (só leitura: shift+tab troca) e o modo com que **novas sessões** começam (grava `permissions.defaultMode` no `settings.json` de usuário, preservando o resto). Ações: compactar, `/context` e `/cost`. |
 | **Tema** | Os 1.250 temas do [Gogh](https://github.com/Gogh-Co/Gogh) (Dracula, Nord, Catppuccin, Tokyo Night, Gruvbox…), baixados uma vez para `~/.claude/menu/gogh-themes.json`. Busca, filtro claro/escuro e uma lista com amostras das cores que rola sozinha (roda do mouse, setas, ou o foco andando por ela). Clique ou Enter num tema aplica: vira o tema customizado `~/.claude/themes/menu.json` (todos os tokens de cor do Claude Code, ajustados para ler no fundo) e fica em vigor como `custom:menu`. Com o foco parado num tema, a **prévia** pinta na hora sem guardar; fechar o menu ou sair da aba volta ao tema guardado. No **Windows Terminal**, o perfil da aba recebe o esquema `claude-menu` com o fundo do tema, e volta ao esquema dele quando a sessão termina. Também: padrão escuro/claro (o tema base, ao vivo), voltar ao tema de antes do menu e o seletor nativo `/theme`. |
-| **Zen** | Liga e desliga o mod `zen` e escolhe a cor da faixa (linhas `zen.*` do `/config`), e mostra a tarefa que a faixa acompanha. |
+| **Foco** | Liga e desliga o mod `zen` e escolhe a cor da faixa (linhas `zen.*` do `/config`, uma linha por cor com a amostra e ✓ na escolhida), e mostra a tarefa que a faixa acompanha. |
 | **orquestrador** | A sessão principal e uma linha por agente (recuo por nível, `✔`/`✖` para concluído/falhou), lidas do estado do mod orquestrador, e abaixo as configurações dele. |
-| **hud** | Modelo, effort e projeto, barra de contexto, os limites (`5h 37% ↻ 2h20m`, `sem fable 20%`) e o cache, lidos do estado do terminal-hud, e abaixo as configurações dele. |
+| **Uso** | Modelo, effort e projeto, barra de contexto, os limites (`5h 37% ↻ 2h20m`, `sem fable 20%`) e o cache, lidos do estado do terminal-hud, e abaixo as configurações dele. |
 | **Configs** | Um filtro e todas as linhas do `/config`, agrupadas por dono (Claude Code primeiro, depois cada plugin): booleano vira chip on/off, escolha vira chips (ou um seletor quando há muitas), número e texto viram campo com Enter para gravar; linha travada por política aparece com 🔒. No fim, chips que fecham o menu e abrem os painéis nativos (`plugins`, `permissions`, `mcp`, `hooks`, `memory`, `usage`…), só os que a sessão tem. |
 
 Toda ação deixa uma linha de nota acima do rodapé (`modelo → opus`, `modo padrão → plan (settings.json)`, `tema → Nord`, `recusado: …`). Antes da primeira gravação no `settings.json` do Claude Code ou do Windows Terminal, o mod guarda uma cópia ao lado, em `settings.json.menu.bak`.
@@ -169,7 +173,7 @@ Toda ação deixa uma linha de nota acima do rodapé (`modelo → opus`, `modo p
 - O clique no botão `◆ menu` funciona no terminal em tela cheia (onde o Claude Code repassa cliques); fora dela, use `/menu`.
 - **Tema, primeira vez:** o Claude Code só passa a acompanhar o arquivo `~/.claude/themes/menu.json` quando o tema `custom:menu` já estava em vigor ao iniciar. A primeira escolha grava `theme: "custom:menu"` no `settings.json` e pede para reiniciar o Claude Code uma vez; daí em diante toda troca (e a prévia) é ao vivo. Trocar o tema pelo `/theme` desliga isso até a próxima escolha no menu.
 - **Windows Terminal:** o mod reescreve o `settings.json` do WT (comentários do arquivo não são mantidos; o original fica no `.menu.bak`). Um perfil com `background` próprio ignora o fundo do esquema. Várias sessões no mesmo perfil dividem o esquema, e o original volta quando a última delas fecha (uma sessão que caiu sem fechar deixa de contar depois de 3 minutos). Fora do Windows Terminal só as cores do Claude Code mudam.
-- As abas Zen, orquestrador e hud precisam dos mods instalados; sem eles, a aba diz que o mod não está carregado (as configurações continuam editáveis).
+- As abas Foco, orquestrador e Uso precisam dos mods instalados (zen, orquestrador e terminal-hud); sem eles, a aba diz que o mod não está carregado (as configurações continuam editáveis).
 - Comandos e painéis rodam quando a sessão fica ociosa; numa recusa, o menu fica aberto e a nota mostra a razão.
 - No celular (Claude Code mobile) os campos de texto viram só leitura; o resto funciona por toque.
 

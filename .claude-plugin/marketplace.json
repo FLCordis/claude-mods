@@ -19,7 +19,7 @@
     {
       "name": "menu",
       "source": "./mods/menu",
-      "description": "Menu com abas, aberto pelo botão sob o prompt: sessão (modelo, effort, modo), 1.250 temas com troca ao vivo e fundo do Windows Terminal, zen, orquestrador, hud e todas as configs do /config, tudo clicável."
+      "description": "Menu com abas, aberto pelo botão sob o prompt, em português ou inglês: sessão (modelo, effort, modo), 1.250 temas com troca ao vivo e fundo do Windows Terminal, foco (zen), orquestrador, uso (terminal-hud) e todas as configs do /config, tudo clicável."
     }
   ]
 }

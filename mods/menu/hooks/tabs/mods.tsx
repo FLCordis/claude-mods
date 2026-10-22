@@ -1,7 +1,8 @@
 import type { ConfigRow, EngineInterface, SessionRateLimit } from 'claude-code'
 
-import type { MenuAgentRow as AgentLike, MenuCacheMark as CacheMark, MenuZenTask } from '../../types'
+import type { MenuAgentRow as AgentLike, MenuCacheMark as CacheMark, MenuLang, MenuZenTask } from '../../types'
 import { ConfigRows } from '../config-rows'
+import { lang, t } from '../i18n'
 import { bar, basename, clock, duration, level, limitLabel, prettyModel, tokens } from '../format'
 import type { PaneEvent } from '../shell'
 
@@ -18,12 +19,12 @@ export function depthOf(rows: Record<string, { parentId?: string }>, id: string)
 
 const spent = (row: AgentLike) => row.final?.tokens ?? row.tokens
 
-function configSection($: EngineInterface, e: PaneEvent, rows: readonly ConfigRow[]): JSX.Element {
+function configSection($: EngineInterface, e: PaneEvent, rows: readonly ConfigRow[], l: MenuLang): JSX.Element {
   const { Box, Text } = $.ui.resolve(e)
   return (
     <Box flexDirection="column" marginTop={1}>
-      <Text color="subtle">Configuração</Text>
-      {rows.length === 0 ? <Text dimColor>sem configuração</Text> : ConfigRows($, e, rows)}
+      <Text color="subtle">{t(l, 'configuration')}</Text>
+      {rows.length === 0 ? <Text dimColor>{t(l, 'noConfiguration')}</Text> : ConfigRows($, e, rows, l)}
     </Box>
   )
 }
@@ -36,6 +37,7 @@ export async function Orquestrador(
   commands: readonly string[],
 ): Promise<JSX.Element> {
   const { Box, Text } = $.ui.resolve(e)
+  const l = await lang($)
   // O orquestrador só grava `agents` no primeiro subagente; o comando /orq, que ele registra ao
   // iniciar, diz se está carregado antes disso.
   const agentsRead = await $.state.get({ plugin: 'orquestrador', key: 'agents' } as const)
@@ -44,8 +46,8 @@ export async function Orquestrador(
   if (!loaded) {
     return (
       <Box flexDirection="column">
-        <Text dimColor>orquestrador não está carregado</Text>
-        {configSection($, e, rows)}
+        <Text dimColor>{t(l, 'notLoaded')('orquestrador')}</Text>
+        {configSection($, e, rows, l)}
       </Box>
     )
   }
@@ -77,7 +79,7 @@ export async function Orquestrador(
           {row.description}
           <Text color="subtle">
             {'  '}
-            {row.type} · {failed ? 'falhou' : 'concluído'} · {cost}
+            {row.type} · {failed ? t(l, 'failed') : t(l, 'done')} · {cost}
           </Text>
         </Text>
       )
@@ -101,39 +103,39 @@ export async function Orquestrador(
     <Box flexDirection="column">
       <Text wrap="truncate-end">
         <Text color="claude">● </Text>
-        <Text bold>principal</Text>
+        <Text bold>{t(l, 'main')}</Text>
         <Text color="subtle">
           {'  '}
           {mainMeta}
           {'  '}
-          {live} ativo{live === 1 ? '' : 's'}
+          {t(l, 'active')(live)}
         </Text>
       </Text>
-      {lines.length === 0 && <Text dimColor>nenhum agente ativo</Text>}
+      {lines.length === 0 && <Text dimColor>{t(l, 'noAgents')}</Text>}
       {lines.map(agentLine)}
       <Text color="subtle" dimColor>
-        sessão: {sessionAgents} agente{sessionAgents === 1 ? '' : 's'} · {tokens(sessionTokens)} tok
+        {t(l, 'sessionAgents')(sessionAgents, tokens(sessionTokens))}
       </Text>
-      {configSection($, e, rows)}
+      {configSection($, e, rows, l)}
     </Box>
   )
 }
 
 /**
- * A aba do zen: se está ligado, a tarefa que a faixa acompanha agora e as configs do mod (ligar e
- * desligar, a cor da faixa). Ligar ou desligar recarrega o zen com a opção nova.
+ * A aba Foco (o mod zen): se está ligado, a tarefa que a faixa acompanha agora e as configs do
+ * mod (ligar e desligar, a cor da faixa). Ligar ou desligar recarrega o zen com a opção nova.
  */
-export async function Zen($: EngineInterface, e: PaneEvent, rows: readonly ConfigRow[]): Promise<JSX.Element> {
+export async function Foco($: EngineInterface, e: PaneEvent, rows: readonly ConfigRow[]): Promise<JSX.Element> {
   const { Box, Text } = $.ui.resolve(e)
-  const taskRead = await $.state.get({ plugin: 'zen', key: 'task' } as const)
+  const [l, taskRead] = await Promise.all([lang($), $.state.get({ plugin: 'zen', key: 'task' } as const)])
   // As linhas `zen.*` do /config só existem com o mod carregado; a tarefa, depois do primeiro prompt.
   const loaded = rows.length > 0 || taskRead.version > 0
   if (!loaded) {
     return (
       <Box flexDirection="column">
-        <Text dimColor>zen não está carregado</Text>
+        <Text dimColor>{t(l, 'notLoaded')('zen')}</Text>
         <Text color="subtle" dimColor wrap="wrap">
-          /plugin install zen@flcordis-mods: esconde as chamadas de tool e mostra uma faixa de progresso acima do prompt.
+          {t(l, 'zenInstall')}
         </Text>
       </Box>
     )
@@ -147,13 +149,13 @@ export async function Zen($: EngineInterface, e: PaneEvent, rows: readonly Confi
     <Box flexDirection="column">
       <Text wrap="truncate-end">
         <Text color={isOn ? 'success' : 'subtle'} bold>
-          {isOn ? '● ligado' : '○ desligado'}
+          {isOn ? t(l, 'zenOn') : t(l, 'zenOff')}
         </Text>
-        <Text color="subtle"> · {isOn ? 'as tools somem; a faixa acima do prompt mostra os passos' : 'as tools aparecem como sempre'}</Text>
+        <Text color="subtle"> · {isOn ? t(l, 'zenOnHint') : t(l, 'zenOffHint')}</Text>
       </Text>
       {task === null ? (
         <Text color="subtle" dimColor>
-          nenhuma tarefa na faixa
+          {t(l, 'noTask')}
         </Text>
       ) : (
         <Text wrap="truncate-end">
@@ -161,19 +163,20 @@ export async function Zen($: EngineInterface, e: PaneEvent, rows: readonly Confi
           <Text bold>{task.title}</Text>
           <Text color="subtle">
             {'  '}
-            {task.steps.length === 0 ? 'sem plano' : `${done} de ${task.steps.length} passos`} · {duration((task.doneAt ?? now) - task.startedAt)}
+            {task.steps.length === 0 ? t(l, 'noPlan') : t(l, 'stepsOf')(done, task.steps.length)} · {duration((task.doneAt ?? now) - task.startedAt)}
           </Text>
         </Text>
       )}
-      {configSection($, e, rows)}
+      {configSection($, e, rows, l)}
     </Box>
   )
 }
 
-/** A aba do hud: modelo, contexto, limites e cache como a régua mostra, e as configs do mod. */
-export async function Hud($: EngineInterface, e: PaneEvent, rows: readonly ConfigRow[]): Promise<JSX.Element> {
+/** A aba Uso (o terminal-hud): modelo, contexto, limites e cache como a régua mostra, e as configs do mod. */
+export async function Uso($: EngineInterface, e: PaneEvent, rows: readonly ConfigRow[]): Promise<JSX.Element> {
   const { Box, Text } = $.ui.resolve(e)
-  const [effortRead, cacheRead, windowsRead, noteRead] = await Promise.all([
+  const [l, effortRead, cacheRead, windowsRead, noteRead] = await Promise.all([
+    lang($),
     $.state.get({ plugin: 'terminal-hud', key: 'effort' } as const),
     $.state.get({ plugin: 'terminal-hud', key: 'cache' } as const),
     $.state.get({ plugin: 'terminal-hud', key: 'windows' } as const),
@@ -183,8 +186,8 @@ export async function Hud($: EngineInterface, e: PaneEvent, rows: readonly Confi
   if (!loaded) {
     return (
       <Box flexDirection="column">
-        <Text dimColor>terminal-hud não está carregado</Text>
-        {configSection($, e, rows)}
+        <Text dimColor>{t(l, 'notLoaded')('terminal-hud')}</Text>
+        {configSection($, e, rows, l)}
       </Box>
     )
   }
@@ -223,8 +226,8 @@ export async function Hud($: EngineInterface, e: PaneEvent, rows: readonly Confi
       ) : (
         <Text>
           <Text color="subtle">cache </Text>
-          <Text color="error" bold>expirado há {duration(-left)}</Text>
-          <Text color="subtle"> · {size} tok a reescrever</Text>
+          <Text color="error" bold>{t(l, 'expiredAgo')(duration(-left))}</Text>
+          <Text color="subtle"> · {size} {t(l, 'tokToRewrite')}</Text>
         </Text>
       )
   }
@@ -247,7 +250,7 @@ export async function Hud($: EngineInterface, e: PaneEvent, rows: readonly Confi
         </Text>
       </Text>
       {limits.length === 0 ? (
-        <Text color="subtle" dimColor>{usageNote ?? 'limites aguardando 1ª resposta'}</Text>
+        <Text color="subtle" dimColor>{usageNote ?? t(l, 'limitsWaiting')}</Text>
       ) : (
         limits.map(limit => {
           const resets = limit.resetsAt ? Date.parse(limit.resetsAt) - now : NaN
@@ -261,7 +264,7 @@ export async function Hud($: EngineInterface, e: PaneEvent, rows: readonly Confi
         })
       )}
       {cacheLine}
-      {configSection($, e, rows)}
+      {configSection($, e, rows, l)}
     </Box>
   )
 }

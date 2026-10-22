@@ -1,6 +1,7 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Timer } from 'claude-code'
 
+import { lang, t } from '../i18n'
 import { configDir, writeUserSetting } from '../settings'
 import { findTheme } from './catalog'
 import { baseTheme, toClaudeTheme } from './convert'
@@ -94,9 +95,10 @@ export async function applyTheme($: EngineInterface, choice: ThemeChoice): Promi
   const live = await activate($)
   await $.store.set('theme', choice)
   await update($, chosenAtom, () => choiceName(choice))
-  const parts = [`tema → ${choiceName(choice)}`]
-  if (!live) parts.push('reinicie o Claude Code uma vez para ativar; depois a troca é ao vivo')
-  if (wtError !== null) parts.push(`fundo do terminal não mudou: ${wtError}`)
+  const l = await lang($)
+  const parts = [t(l, 'themeSet')(choiceName(choice))]
+  if (!live) parts.push(t(l, 'restartToActivate'))
+  if (wtError !== null) parts.push(`${t(l, 'wtNotChanged')}${wtError}`)
   return parts.join(' · ')
 }
 
@@ -181,9 +183,10 @@ export async function restoreOriginal($: EngineInterface): Promise<string> {
   await $.store.delete('themeBefore')
   await update($, chosenAtom, () => null)
   await update($, previewAtom, () => null)
-  const parts = [value === null ? 'o menu não trocou o tema do Claude Code: nada a restaurar nele' : `tema → ${value} (o de antes do menu)`]
-  if (!live) parts.push('vale a partir do próximo início do Claude Code')
-  if (wtError !== null) parts.push(`fundo do terminal não voltou: ${wtError}`)
+  const l = await lang($)
+  const parts = [value === null ? t(l, 'nothingToRestore') : t(l, 'themeBefore')(value)]
+  if (!live) parts.push(t(l, 'fromNextStart'))
+  if (wtError !== null) parts.push(`${t(l, 'wtNotRestored')}${wtError}`)
   return parts.join(' · ')
 }
 

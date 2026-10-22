@@ -2,6 +2,7 @@ import { atom, update } from 'claude-code'
 import type { EngineInterface } from 'claude-code'
 
 import { refreshCache } from './cache'
+import { lang, t } from './i18n'
 import { closeMenu } from './toggle'
 
 // Cada arquivo declara os atoms que lê ou grava: o validador lista os valores por arquivo.
@@ -15,6 +16,11 @@ export function note($: EngineInterface, text: string) {
 /** A mensagem de um erro, para a nota. */
 export function reason(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
+}
+
+/** Anota uma recusa (`recusado: …`) no idioma do menu. */
+export async function refused($: EngineInterface, error: unknown) {
+  await note($, `${t(await lang($), 'refused')}${reason(error)}`)
 }
 
 /**
@@ -35,7 +41,7 @@ export async function runCommand(
     await note($, label)
     ok = true
   } catch (error) {
-    await note($, `recusado: ${reason(error)}`)
+    await refused($, error)
   }
   if (ok && options.close) await closeMenu($)
   await refreshCache($)

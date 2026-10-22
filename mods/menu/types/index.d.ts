@@ -1,5 +1,8 @@
 /** As abas do menu, na ordem do cabeçalho. */
-export type MenuTab = 'sessao' | 'tema' | 'zen' | 'orquestrador' | 'hud' | 'configs'
+export type MenuTab = 'sessao' | 'tema' | 'foco' | 'orquestrador' | 'uso' | 'configs'
+
+/** O idioma dos textos do menu. */
+export type MenuLang = 'pt' | 'en'
 
 /** A tarefa que a faixa do zen acompanha (subconjunto do contrato daquele mod). */
 export type MenuZenTask = {
@@ -42,6 +45,8 @@ declare module 'claude-code' {
     menu: {
       /** A aba em exibição. */
       tab: MenuTab
+      /** O idioma dos textos do menu; guardado no `$.store` para as próximas sessões. */
+      lang: MenuLang
       /** Se o pane do menu está aberto: só para o botão sob o prompt desenhar ▲ ou ▼. */
       isOpen: boolean
       /** As linhas do /config, relidas ao abrir, ao trocar de aba e depois de cada ação. */

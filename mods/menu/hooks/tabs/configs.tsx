@@ -3,6 +3,7 @@ import type { ConfigRow, EngineInterface } from 'claude-code'
 
 import { Chip, ChipRow, SectionLabel } from '../chips'
 import { ConfigRows } from '../config-rows'
+import { lang, t } from '../i18n'
 import type { PaneEvent } from '../shell'
 import { runCommand } from '../state'
 
@@ -48,7 +49,7 @@ export async function Configs(
   const els = $.ui.resolve(e)
   const { Box, Text } = els
   const Input = 'Input' in els ? els.Input : undefined
-  const filter = await read($, filterAtom)
+  const [l, filter] = await Promise.all([lang($), read($, filterAtom)])
   const available = new Set(commands)
   const panels = PANELS.filter(name => available.has(name))
   const groups = groupRows(rows, filter)
@@ -58,25 +59,25 @@ export async function Configs(
       {Input !== undefined && (
         <Input
           key="filter"
-          label="filtro"
-          placeholder="chave ou rótulo"
+          label={t(l, 'filter')}
+          placeholder={t(l, 'filterHint')}
           value={filter}
-          submitLabel="filtrar"
+          submitLabel={t(l, 'filterGo')}
           onInput={(text: string) => void update($, filterAtom, () => text)}
           onSubmit={(text: string) => void update($, filterAtom, () => text)}
         />
       )}
-      {groups.length === 0 && <Text dimColor>nenhuma opção casa com o filtro</Text>}
+      {groups.length === 0 && <Text dimColor>{t(l, 'noMatch')}</Text>}
       {groups.map(group => (
         <Box key={`group:${group.owner}`} flexDirection="column">
           <Text bold>{group.owner}</Text>
-          {ConfigRows($, e, group.rows)}
+          {ConfigRows($, e, group.rows, l)}
         </Box>
       ))}
       <Box flexDirection="column">
-        {SectionLabel($, e, 'Painéis')}
+        {SectionLabel($, e, t(l, 'panels'))}
         {panels.length === 0 ? (
-          <Text dimColor>nenhum painel disponível</Text>
+          <Text dimColor>{t(l, 'noPanels')}</Text>
         ) : (
           ChipRow(
             $,

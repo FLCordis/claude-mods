@@ -248,9 +248,9 @@ test('lista em janela: a roda rola a lista (sem passar das pontas), e o foco al�
   const ui = await $.ui.mount(PANE)
   const listed = async () => (await ui.findAll({ type: 'Button' })).map(b => b.key).filter(k => k?.startsWith('theme:'))
   const wheel = (by: number) =>
-    $.ui.scroll({ component: 'Pane', requestId: 'menu', offset: 0, by, bodyRows: 20, contentRows: 20, origin: { kind: 'person' } })
+    $.ui.scroll({ component: 'Pane', requestId: 'menu', offset: 0, by, bodyRows: 24, contentRows: 24, origin: { kind: 'person' } })
 
-  // 20 linhas de corpo: 6 temas na janela, e um além de cada ponta desenhado para o foco passar.
+  // 24 linhas de corpo (18 da moldura e do cabeçalho): 6 temas na janela, e um além de cada ponta desenhado para o foco passar.
   expect(await listed()).toHaveLength(7)
   expect((await listed())[0]).toBe('theme:tema-00')
   expect(await texts(ui)).toMatch(/1–6 de 30/)

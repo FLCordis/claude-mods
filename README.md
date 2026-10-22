@@ -4,7 +4,15 @@ Mods para o [Claude Code](https://claude.com/claude-code): plugins de *function 
 
 ## Instalação
 
-Na prompt de uma sessão do Claude Code no terminal:
+Na prompt de uma sessão do Claude Code no terminal, tudo de uma vez:
+
+```
+/plugin install pacote --marketplace FLCordis/claude-mods
+```
+
+O `pacote` não tem código: só depende dos quatro mods, e o Claude Code instala e liga os quatro junto. Cada um continua um plugin próprio: para desligar um, desligue primeiro o pacote (`/plugin disable pacote@flcordis-mods`, que não mexe nos mods) e depois o mod (`/plugin disable zen@flcordis-mods`), ou pelo painel `/plugin`. Enquanto o pacote está ligado, o Claude Code recusa desligar um mod que ele depende.
+
+Ou um por um:
 
 ```
 /plugin install terminal-hud --marketplace FLCordis/claude-mods

@@ -1,0 +1,12 @@
+{
+  "name": "pacote",
+  "version": "0.1.0",
+  "description": "Todos os mods de uma vez: terminal-hud, orquestrador, zen e menu. Só instala os quatro; cada um segue um plugin próprio, que pode ser desligado.",
+  "author": {
+    "name": "Flávio Magalhães",
+    "url": "https://github.com/FLCordis"
+  },
+  "repository": "https://github.com/FLCordis/claude-mods",
+  "license": "MIT",
+  "dependencies": ["terminal-hud", "orquestrador", "zen", "menu"]
+}

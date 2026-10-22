@@ -7,6 +7,11 @@
   },
   "plugins": [
     {
+      "name": "pacote",
+      "source": "./mods/pacote",
+      "description": "Todos os mods de uma vez (terminal-hud, orquestrador, zen e menu). Cada um segue um plugin próprio e pode ser desligado."
+    },
+    {
       "name": "terminal-hud",
       "source": "./mods/terminal-hud",
       "description": "Régua de uma linha sob o prompt: modelo/effort/projeto, contexto, limites de uso e validade do cache."

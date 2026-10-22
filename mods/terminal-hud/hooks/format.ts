@@ -54,12 +54,17 @@ export function level(percent: number): 'success' | 'warning' | 'error' {
   return 'success'
 }
 
-/** A dica sem o lembrete do atalho de modo, que o indicador do Claude Code já implica. */
+/**
+ * A dica numa linha, sem o lembrete do atalho de modo (que o indicador do Claude Code já
+ * implica). A dica do engine às vezes traz uma segunda linha só com um separador, que sairia
+ * como um `·` solto embaixo: linhas sem letra nem número ficam de fora, as outras se juntam.
+ */
 export function stripHint(hint: string): string {
   return hint
-    .replace(/\(shift\+tab to cycle\)/iu, '')
-    .replace(/\s{2,}/g, ' ')
-    .trim()
+    .split(/\r?\n/)
+    .map(line => line.replace(/\(shift\+tab to cycle\)/iu, '').replace(/\s{2,}/g, ' ').trim())
+    .filter(line => /[\p{L}\p{N}]/u.test(line))
+    .join(' · ')
 }
 
 /** Rótulo de uma janela de limite: `5h`, `sem`, `gasto`; kinds novos viram palavras (`sem fable`). */

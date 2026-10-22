@@ -44,13 +44,20 @@ test('botão sob o prompt: fica à direita do que vem de baixo, abre e fecha o m
   await start($)
   for (const surface of SURFACES) {
     const hint = await $.ui.mount({ ...HINT, surface })
-    // O que vem de baixo (a dica do engine, ou a régua do terminal-hud) segue desenhado, e um só botão.
-    expect(await hint.find({ type: 'Text', text: /dica do engine: \? for shortcuts/ })).toBeDefined()
+    // Abaixo há só o nó do engine: o menu desenha a dica ele mesmo, numa linha, e o nó fica de
+    // fora (ele ocupa a linha inteira e traz uma segunda linha com um `·` solto).
+    expect(await hint.find({ type: 'Text', text: '? for shortcuts' })).toBeDefined()
+    expect(JSON.stringify(await hint.drawn())).not.toContain('"engine"')
     const buttons = await hint.findAll({ type: 'Button' })
     expect(buttons.map(b => b.key)).toEqual(['menu:toggle'])
     expect(buttons[0]?.props.label).toBe('◆ menu ▲')
     await hint.unmount()
   }
+  // A dica do engine às vezes vem com uma segunda linha só com o separador: ela some.
+  const twoLines = await $.ui.mount({ ...HINT, props: { ...HINT.props, hint: '? for shortcuts\n·' } })
+  expect((await twoLines.findAll({ type: 'Text' })).map(t => t.text)).toContain('? for shortcuts')
+  expect((await twoLines.findAll({ type: 'Text' })).some(t => t.text.includes('\n'))).toBe(false)
+  await twoLines.unmount()
 
   const hint = await $.ui.mount(HINT)
   // O que vem de baixo pode ser o nó do próprio engine, que o terminal recusa sob um Box com

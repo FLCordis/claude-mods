@@ -1,6 +1,7 @@
 import { atom, read } from 'claude-code'
 import type { EngineInterface, RenderElement, RenderInput } from 'claude-code'
 
+import { hintLine } from './format'
 import { reason } from './state'
 import { toggleMenu } from './toggle'
 
@@ -8,22 +9,34 @@ const isOpenAtom = atom({ plugin: 'menu', key: 'isOpen' } as const, false)
 
 /**
  * A linha sob o prompt com o botão do menu na ponta direita. O que vem de baixo (a régua do
- * terminal-hud, ou a dica do próprio engine) fica à esquerda e encolhe primeiro; tudo numa linha
- * só, porque o engine desenha o rótulo de modo (`⏵⏵ …`) numa coluna à esquerda desta árvore.
+ * terminal-hud) fica à esquerda e encolhe primeiro; tudo numa linha só, porque o engine desenha o
+ * rótulo de modo (`⏵⏵ …`) numa coluna à esquerda desta árvore.
+ *
+ * Sem outro mod abaixo, o que volta é o nó do próprio engine. Ele fica de fora: ocupa a linha
+ * inteira e às vezes traz uma segunda linha com um `·` solto. A dica é desenhada aqui, numa linha.
  */
 export async function Hint(
   $: EngineInterface,
   e: RenderInput<'PromptHint'>,
   below: () => Promise<RenderElement>,
 ): Promise<JSX.Element> {
-  let rest: RenderElement | null = null
+  let drawn: RenderElement | null = null
   try {
-    rest = await below()
+    drawn = await below()
   } catch {
-    rest = null
+    drawn = null
   }
   const isOpen = await read($, isOpenAtom)
-  const { Box, Button } = $.ui.resolve(e)
+  const { Box, Button, Text } = $.ui.resolve(e)
+  const line = hintLine(e.props.hint)
+  const rest =
+    drawn !== null && drawn.type !== 'engine' ? (
+      drawn
+    ) : line === '' ? null : (
+      <Text color="subtle" dimColor wrap="truncate-end">
+        {line}
+      </Text>
+    )
   // Sem `overflow` em volta do que vem de baixo: quando é o nó do próprio engine (a dica), o
   // terminal recusa a árvore inteira com ele sob um Box assim e desenha só a dica dele.
   return (

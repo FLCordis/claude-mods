@@ -109,6 +109,23 @@ test('compõe com quem desenha abaixo: a dica vai vazia e o que voltar fica depo
   expect(seen.every(hint => hint === '')).toBe(true)
 })
 
+test('sem outro mod abaixo, o nó do engine fica de fora: a régua já traz a dica, numa linha', async ($, on) => {
+  mock.clock(on, { now: T0 })
+  world(on)
+  // O que o core responde: o nó da dica do próprio engine (ocupa a linha inteira e pode trazer
+  // uma segunda linha com um `·` solto).
+  on('ui.render', { component: 'PromptHint' }, () => ({ type: 'engine', ref: 0 }) as RenderElement)
+  await $.session.start({ cwd: 'C:\proj', surface: 'terminal', isInteractive: true })
+  for (const surface of SURFACES) {
+    const ui = await $.ui.mount({ ...HINT, props: { ...HINT.props, hint: '? for shortcuts\n·' }, surface })
+    expect(JSON.stringify(await ui.drawn())).not.toContain('"engine"')
+    const texts = (await ui.findAll({ type: 'Text' })).map(t => t.text).join('\n')
+    expect(texts).toMatch(/^\? for shortcuts  │  Opus 5\.5/)
+    expect(texts).not.toMatch(/\n·/)
+    await ui.unmount()
+  }
+})
+
 test('uma linha sob o prompt: dica do engine, modelo, contexto, todos os limites e o cache', async ($, on) => {
   const clock = mock.clock(on, { now: T0 })
   world(on)

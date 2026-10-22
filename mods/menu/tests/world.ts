@@ -161,11 +161,8 @@ export function world(
     w.steps.push(e.effort)
     return { turnId: e.turnId, index: e.index, answer: 'ok', toolUses: [], stopReason: 'end_turn' as const, usage: null }
   })
-  // A linha de dica do próprio engine (ou a régua de outro mod), à esquerda do botão do menu.
-  on('ui.render', { component: 'PromptHint' }, ($$, e) => {
-    const { Text } = $$.ui.resolve(e)
-    return h(Text, { dimColor: true }, `dica do engine: ${e.props.hint}`) as RenderElement
-  })
+  // A linha de dica que o próprio engine desenharia: o nó dele, como o core responde.
+  on('ui.render', { component: 'PromptHint' }, () => ({ type: 'engine', ref: 0 }) as RenderElement)
   on('ui.panes', () => ({ value: w.panes }))
   on('ui.open', (_$, e) => {
     w.opens.push(e)

@@ -126,13 +126,16 @@ export const register: Register = (on, options) => {
   // A linha de dica sob o prompt vira a régua da sessão, com a dica do engine na frente.
   on('ui.render', { component: 'PromptHint' }, async ($, e, next) => {
     // O que os outros mods desenham nesta linha (o botão do menu) vem depois da régua. A régua já
-    // traz a dica, então quem está abaixo recebe a dica vazia; sem ninguém abaixo, só a régua.
+    // traz a dica, então quem está abaixo recebe a dica vazia. Sem outro mod abaixo, o que volta é
+    // o nó do próprio engine: ele fica de fora, porque ocupa a linha inteira (a régua sumiria) e
+    // traz a dica dele de novo.
     let tail: RenderElement | null = null
     try {
       tail = await next({ ...e, props: { ...e.props, hint: '' } })
     } catch {
       tail = null
     }
+    if (tail?.type === 'engine') tail = null
 
     const now = (await read($, nowAtom)) || (await $.clock.now())
     const [effort, cache, windows, usageNote, model, root, usage] = await Promise.all([
@@ -271,9 +274,11 @@ export const register: Register = (on, options) => {
             ))}
           </Text>
         </Box>
-        <Box flexGrow={1} flexShrink={0}>
-          {tail}
-        </Box>
+        {tail !== null && (
+          <Box flexGrow={1} flexShrink={0}>
+            {tail}
+          </Box>
+        )}
       </Box>
     )
   })

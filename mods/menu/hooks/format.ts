@@ -62,6 +62,18 @@ export function limitLabel(kind: string): string {
   return kind.replace(/^seven_day/, 'sem').replace(/^five_hour/, '5h').replace(/_/g, ' ')
 }
 
+/**
+ * A dica do engine numa linha: ela às vezes traz uma segunda linha só com um separador, que
+ * sairia como um `·` solto embaixo. Linhas sem letra nem número ficam de fora, as outras se juntam.
+ */
+export function hintLine(hint: string): string {
+  return hint
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(line => /[\p{L}\p{N}]/u.test(line))
+    .join(' · ')
+}
+
 /** Último segmento de um caminho, Windows ou POSIX. */
 export function basename(path: string): string {
   const parts = path.split(/[\\/]+/).filter(Boolean)

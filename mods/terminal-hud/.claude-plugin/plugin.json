@@ -1,0 +1,20 @@
+{
+  "name": "terminal-hud",
+  "version": "0.1.0",
+  "description": "Blocos estilo terminal acima do prompt: modelo/effort/projeto, contexto, limites de uso e validade do cache.",
+  "author": {
+    "name": "Flávio Magalhães",
+    "url": "https://github.com/FLCordis"
+  },
+  "repository": "https://github.com/FLCordis/claude-mods",
+  "license": "MIT",
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "cacheTtlMinutes": {
+      "type": "number",
+      "title": "TTL do cache (minutos)",
+      "description": "Validade do prompt cache da sessão principal: 60 na assinatura, 5 em uso excedente/API.",
+      "default": 60
+    }
+  }
+}

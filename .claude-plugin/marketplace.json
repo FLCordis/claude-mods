@@ -1,0 +1,12 @@
+{
+  "name": "flcordis-mods",
+  "description": "Mods do Claude Code feitos pelo Flávio: HUD de sessão e o que vier.",
+  "owner": { "name": "Flávio Magalhães", "url": "https://github.com/FLCordis" },
+  "plugins": [
+    {
+      "name": "terminal-hud",
+      "source": "./mods/terminal-hud",
+      "description": "Blocos estilo terminal acima do prompt: modelo/effort/projeto, contexto, limites de uso e validade do cache."
+    }
+  ]
+}

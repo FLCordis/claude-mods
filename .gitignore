@@ -1,0 +1,5 @@
+# Tipos que o Claude Code gera a cada carga do mod
+**/.claude-plugin/types/
+node_modules/
+.DS_Store
+Thumbs.db

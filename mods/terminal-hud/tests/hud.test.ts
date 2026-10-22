@@ -103,12 +103,13 @@ test('compõe com quem desenha abaixo: a dica vai vazia e o que voltar fica depo
     expect(await ui.find({ key: 'menu:toggle' })).toBeDefined()
     const texts = (await ui.findAll({ type: 'Text' })).map(t => t.text).join('\n')
     expect(texts).toMatch(/^\? for shortcuts  │  Opus 5\.5/)
-    // A linha divide espaço com o rótulo de modo do engine, numa coluna à esquerda: a régua começa
-    // em largura 0 e só cresce no espaço livre (senão o rótulo encolhe e o `·` dele cai para
-    // baixo); o que vem depois tem a largura dele e não encolhe.
+    // O engine desenha o rótulo de modo numa coluna à esquerda, e o layout do terminal mede uma
+    // parte elástica na largura natural dela (o rótulo encolhe, a régua some). Então a régua tem
+    // largura explícita: a linha (200), menos o rótulo (ainda não sabido: o mais longo, 27),
+    // menos o que vem depois (`◆ menu`, 6, e o espaço) e a folga (2); o que vem depois não encolhe.
     const root = (await ui.drawn()) as { props?: Record<string, unknown>; children?: { props?: Record<string, unknown> }[] }
-    expect(root.props).toMatchObject({ flexDirection: 'row', flexGrow: 1 })
-    expect(root.children?.[0]?.props).toMatchObject({ flexGrow: 1, width: 0 })
+    expect(root.props).toMatchObject({ flexDirection: 'row' })
+    expect(root.children?.[0]?.props).toMatchObject({ width: 200 - 27 - 7 - 2, flexShrink: 0 })
     expect(root.children?.[1]?.props).toMatchObject({ flexShrink: 0 })
     expect(root.children?.[1]?.props?.flexGrow).toBeUndefined()
     await ui.unmount()
@@ -123,6 +124,7 @@ test('sem outro mod abaixo, o nó do engine fica de fora: a régua já traz a di
   // O que o core responde: o nó da dica do próprio engine (ocupa a linha inteira e pode trazer
   // uma segunda linha com um `·` solto).
   on('ui.render', { component: 'PromptHint' }, () => ({ type: 'engine', ref: 0 }) as RenderElement)
+  on('classic.UserPromptSubmit', () => ({}))
   await $.session.start({ cwd: 'C:\proj', surface: 'terminal', isInteractive: true })
   for (const surface of SURFACES) {
     const ui = await $.ui.mount({ ...HINT, props: { ...HINT.props, hint: '? for shortcuts\n·' }, surface })
@@ -132,6 +134,17 @@ test('sem outro mod abaixo, o nó do engine fica de fora: a régua já traz a di
     expect(texts).not.toMatch(/\n·/)
     await ui.unmount()
   }
+
+  // Um mod acima avisa em `tail` o que desenha depois da régua (o botão do menu, 8 colunas): a
+  // régua reserva isso. E o modo sabido por um hook clássico dimensiona o rótulo do engine: no
+  // modo padrão só o ` · ` (3 colunas).
+  const withTail = await $.ui.mount({ ...HINT, surface: 'terminal', props: { ...HINT.props, tail: '◆ menu ▲' } })
+  const ruler = (await withTail.drawn()) as { children?: { props?: Record<string, unknown> }[] }
+  expect(ruler.children?.[0]?.props).toMatchObject({ width: 200 - 27 - 9 - 2 })
+  await $.classic.UserPromptSubmit({ prompt: 'oi', permission_mode: 'default' })
+  const known = (await withTail.drawn()) as { children?: { props?: Record<string, unknown> }[] }
+  expect(known.children?.[0]?.props).toMatchObject({ width: 200 - 3 - 9 - 2 })
+  await withTail.unmount()
 })
 
 test('uma linha sob o prompt: dica do engine, modelo, contexto, todos os limites e o cache', async ($, on) => {

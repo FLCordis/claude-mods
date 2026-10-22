@@ -61,6 +61,8 @@ export type World = {
   store: Record<string, unknown>
   /** O effort com que cada `turn.step` chegou ao fundo, depois dos hooks. */
   steps: (string | number | undefined)[]
+  /** O `tail` que a linha sob o prompt passou ao mod abaixo. */
+  tails: string[]
   /** As URLs que o mod baixou. */
   fetches: string[]
 }
@@ -90,7 +92,7 @@ export function world(
     files = {},
   }: WorldOptions = {},
 ): World {
-  const w: World = { panes: [], opens: [], runs: [], sets: [], files: { ...files }, store: { ...store }, steps: [], fetches: [] }
+  const w: World = { panes: [], opens: [], runs: [], sets: [], files: { ...files }, store: { ...store }, steps: [], fetches: [], tails: [] }
   on('http.fetch', (_$, e) => {
     w.fetches.push(e.url)
     if (fetch === undefined) throw new Error('sem rede no teste')
@@ -162,7 +164,10 @@ export function world(
     return { turnId: e.turnId, index: e.index, answer: 'ok', toolUses: [], stopReason: 'end_turn' as const, usage: null }
   })
   // A linha de dica que o próprio engine desenharia: o nó dele, como o core responde.
-  on('ui.render', { component: 'PromptHint' }, () => ({ type: 'engine', ref: 0 }) as RenderElement)
+  on('ui.render', { component: 'PromptHint' }, (_$, e) => {
+    if (e.props.tail !== undefined) w.tails.push(e.props.tail)
+    return { type: 'engine', ref: 0 } as RenderElement
+  })
   on('ui.panes', () => ({ value: w.panes }))
   on('ui.open', (_$, e) => {
     w.opens.push(e)

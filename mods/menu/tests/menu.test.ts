@@ -51,6 +51,8 @@ test('botão sob o prompt: fica à direita do que vem de baixo, abre e fecha o m
     expect(buttons[0]?.props.label).toBe('◆ menu ▲')
     await hint.unmount()
   }
+  // O mod abaixo (a régua do terminal-hud) recebe o rótulo do botão em `tail` e reserva a largura.
+  expect(w.tails).toContain('◆ menu ▲')
   // A dica do engine às vezes vem com uma segunda linha só com o separador: ela some.
   const twoLines = await $.ui.mount({ ...HINT, props: { ...HINT.props, hint: '? for shortcuts\n·' } })
   expect((await twoLines.findAll({ type: 'Text' })).map(t => t.text)).toContain('? for shortcuts')
@@ -58,12 +60,13 @@ test('botão sob o prompt: fica à direita do que vem de baixo, abre e fecha o m
   await twoLines.unmount()
 
   const hint = await $.ui.mount(HINT)
-  // A linha divide espaço com o rótulo de modo do engine (`⏵⏵ … ·`), numa coluna à esquerda: se
-  // a largura natural da árvore passar da linha, o rótulo encolhe e o `·` cai para baixo. O que é
-  // elástico começa em largura 0 e só cresce no espaço livre; o botão não encolhe.
+  // O engine desenha o rótulo de modo numa coluna à esquerda, e o layout do terminal mede uma
+  // parte elástica na largura natural dela (o rótulo encolhe, o botão sai da tela). Então a dica
+  // tem largura explícita: a linha (120), menos o rótulo (modo padrão do settings.json: só o
+  // ` · `, 3), menos o botão (8) e o espaço, e a folga (2); o botão não encolhe.
   const root = (await hint.drawn()) as { props?: Record<string, unknown>; children?: { props?: Record<string, unknown> }[] }
-  expect(root.props).toMatchObject({ flexDirection: 'row', flexGrow: 1 })
-  expect(root.children?.[0]?.props).toMatchObject({ flexGrow: 1, width: 0 })
+  expect(root.props).toMatchObject({ flexDirection: 'row', columnGap: 1 })
+  expect(root.children?.[0]?.props).toMatchObject({ width: 120 - 3 - 9 - 2, flexShrink: 0 })
   expect(root.children?.[1]?.props).toMatchObject({ flexShrink: 0 })
   await $.ui.press({ plugin: 'menu', key: 'menu:toggle' })
   expect(w.panes.map(p => p.id)).toEqual(['menu'])

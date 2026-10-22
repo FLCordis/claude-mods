@@ -2,13 +2,17 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, RenderElement, SessionRateLimit } from 'claude-code'
 
 import type { CacheMark, UsageWindow } from '../types'
-import { basename, clock, duration, level, limitLabel, prettyModel, stripHint, tokens } from './format'
+import { basename, clock, duration, level, limitLabel, modeLabelColumns, prettyModel, stripHint, textWidth, tokens } from './format'
 
 const effortAtom = atom({ plugin: 'terminal-hud', key: 'effort' } as const, null)
+const modeAtom = atom({ plugin: 'terminal-hud', key: 'mode' } as const, null)
 const cacheAtom = atom({ plugin: 'terminal-hud', key: 'cache' } as const, null)
 const nowAtom = atom({ plugin: 'terminal-hud', key: 'now' } as const, 0)
 const windowsAtom = atom({ plugin: 'terminal-hud', key: 'windows' } as const, [])
 const usageNoteAtom = atom({ plugin: 'terminal-hud', key: 'usageNote' } as const, null)
+
+/** Colunas deixadas livres no fim da linha, para a régua nunca empurrar o que vem depois dela. */
+const SLACK_COLUMNS = 2
 
 /** Abaixo disso o cache fica amarelo: falta pouco para expirar. */
 const CACHE_WARN_MS = 5 * 60_000
@@ -78,8 +82,14 @@ export const register: Register = (on, options) => {
 
   on('session.start', async ($, e, next) => {
     // Effort antes da primeira resposta: o que a sessão já tem configurado.
+    const settings = (await $.settings.read()) as { effortLevel?: unknown; permissions?: { defaultMode?: unknown } }
+    // O modo só é certo quando um hook clássico o traz; até lá, o do settings.json, ou nenhum
+    // (e o rótulo conta como o mais longo).
+    if ((await read($, modeAtom)) === null) {
+      const mode = settings.permissions?.defaultMode
+      if (typeof mode === 'string' && mode !== '') await update($, modeAtom, () => mode)
+    }
     if ((await read($, effortAtom)) === null) {
-      const settings = (await $.settings.read()) as { effortLevel?: unknown }
       const initial = (await $.env.get('CLAUDE_EFFORT')) ?? settings.effortLevel
       if (typeof initial === 'string' && initial !== '') {
         await update($, effortAtom, () => initial)
@@ -98,6 +108,20 @@ export const register: Register = (on, options) => {
     void pollUsage($)
     $.clock.every(USAGE_POLL_MS, () => void pollUsage($))
 
+    return next(e)
+  })
+
+  // Todo hook clássico traz o modo de permissão em vigor: é o que dimensiona o rótulo do engine
+  // na linha. Um mostrador: falha ao anotar nunca trava o que o hook acompanha.
+  on('classic.*', async ($, e, next) => {
+    const mode = (e as { permission_mode?: unknown }).permission_mode
+    if (typeof mode === 'string' && mode !== '') {
+      try {
+        await update($, modeAtom, () => mode)
+      } catch {
+        // mostrador
+      }
+    }
     return next(e)
   })
 
@@ -138,8 +162,9 @@ export const register: Register = (on, options) => {
     if (tail?.type === 'engine') tail = null
 
     const now = (await read($, nowAtom)) || (await $.clock.now())
-    const [effort, cache, windows, usageNote, model, root, usage] = await Promise.all([
+    const [effort, mode, cache, windows, usageNote, model, root, usage] = await Promise.all([
       read($, effortAtom),
+      read($, modeAtom),
       read($, cacheAtom),
       read($, windowsAtom),
       read($, usageNoteAtom),
@@ -251,6 +276,10 @@ export const register: Register = (on, options) => {
       </Text>
     )
 
+    const columns = e.viewport?.columns ?? 80
+    const after = tail !== null ? textWidth(tail) : textWidth(e.props.tail ?? '')
+    const rulerWidth = Math.max(0, columns - modeLabelColumns(mode) - (after === 0 ? 0 : after + 1) - SLACK_COLUMNS)
+
     const groups: JSX.Element[] = [
       ...(hint === '' ? [] : [<Text key="hint" color="subtle" dimColor>{hint}</Text>]),
       sessionPart,
@@ -259,14 +288,15 @@ export const register: Register = (on, options) => {
       cachePart,
     ]
 
-    // A linha divide espaço com o rótulo de modo do engine (`⏵⏵ bypass permissions on ·`), numa
-    // coluna à esquerda desta árvore. Se a largura natural da árvore passar do que sobra, o
-    // rótulo encolhe e o `·` dele cai para a linha de baixo. Por isso a régua começa em largura 0
-    // e só cresce no espaço livre (cortada no fim), e o que vem depois (o botão do menu) tem a
-    // largura dele e não encolhe.
+    // Largura explícita. O engine desenha o rótulo de modo (`⏵⏵ bypass permissions on · `) numa
+    // coluna à esquerda desta árvore, e o layout do terminal mede uma parte elástica (flexGrow
+    // com largura 0, ou flexShrink) na largura natural dela: o rótulo encolhe (o `·` cai para a
+    // linha de baixo), a régua some e o que vem depois sai da tela. Então a régua recebe o que
+    // sobra, contado aqui: a linha, menos o rótulo, menos o que vem depois dela (a árvore de
+    // outro mod, ou o `tail` que um mod acima avisou que desenha).
     return (
-      <Box flexDirection="row" flexGrow={1}>
-        <Box flexGrow={1} width={0} overflow="hidden">
+      <Box flexDirection="row" columnGap={1}>
+        <Box width={rulerWidth} flexShrink={0}>
           <Text wrap="truncate-end">
             {groups.map((group, i) => (
               <Text key={String(i)}>

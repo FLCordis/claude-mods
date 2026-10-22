@@ -19,6 +19,8 @@ declare module 'claude-code' {
   interface PluginState {
     'terminal-hud': {
       effort: string | null
+      /** Modo de permissão em vigor (do último hook clássico), para medir o rótulo do engine na linha. */
+      mode: string | null
       cache: CacheMark | null
       now: number
       /** Janelas lidas do endpoint de uso da conta (as por modelo não vêm nos headers da API). */

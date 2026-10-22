@@ -103,7 +103,7 @@ export const register: Register = on => {
   })
 
   // O botão do menu na ponta direita da linha sob o prompt, depois do que os outros mods desenham.
-  on('ui.render', { component: 'PromptHint' }, async ($, e, next) => Hint($, e, () => next(e)))
+  on('ui.render', { component: 'PromptHint' }, async ($, e, next) => Hint($, e, below => next(below)))
 
   // Como quer que o pane feche (Esc, o ✕ do engine, o botão), o botão sob o prompt volta a ▲ e
   // uma prévia de tema não guardada volta ao tema guardado.

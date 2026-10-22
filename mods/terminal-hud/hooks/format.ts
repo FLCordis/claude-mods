@@ -80,3 +80,30 @@ export function basename(path: string): string {
   const parts = path.split(/[\\/]+/).filter(Boolean)
   return parts[parts.length - 1] ?? path
 }
+
+/**
+ * Colunas que o engine usa à esquerda da linha sob o prompt: o rótulo do modo de permissão
+ * (`⏵⏵ bypass permissions on`) e o ` · ` que o separa do que os mods desenham. No modo padrão
+ * só o separador; modo ainda não sabido (null) ou desconhecido conta como o rótulo mais longo.
+ */
+export function modeLabelColumns(mode: string | null): number {
+  const label =
+    mode === 'default' ? ''
+    : mode === 'bypassPermissions' ? 'bypass permissions on'
+    : mode === 'acceptEdits' ? 'accept edits on'
+    : mode === 'plan' ? 'plan mode on'
+    : mode === 'auto' ? 'auto mode on'
+    : 'bypass permissions on'
+  return 3 + (label === '' ? 0 : 3 + label.length)
+}
+
+/** Largura em colunas do texto de uma árvore desenhada (strings e rótulos de botão), sem layout. */
+export function textWidth(node: unknown): number {
+  if (typeof node === 'string') return [...node].length
+  if (node === null || typeof node !== 'object') return 0
+  const { props, children } = node as { props?: { label?: unknown; columnGap?: unknown }; children?: unknown[] }
+  const own = typeof props?.label === 'string' ? [...props.label].length : 0
+  const parts = (children ?? []).map(textWidth)
+  const gap = Number(props?.columnGap ?? 0) * Math.max(0, parts.length - 1)
+  return own + parts.reduce((a, b) => a + b, 0) + gap
+}

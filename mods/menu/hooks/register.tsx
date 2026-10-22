@@ -9,7 +9,9 @@ import { reason } from './state'
 import { Configs } from './tabs/configs'
 import { Hud, Orquestrador } from './tabs/mods'
 import { Sessao, isEffortLevel } from './tabs/sessao'
-import { Tema } from './tabs/tema'
+import { Tema, scrollThemes, themeWindow } from './tabs/tema'
+import { releaseTerminal, restoreSession, revertPreview, schedulePreview } from './themes/apply'
+import { ensureCatalog, loadCatalog } from './themes/catalog'
 import { PANE, isTab, openMenu, syncOpen } from './toggle'
 
 const tabAtom = atom({ plugin: 'menu', key: 'tab' } as const, 'sessao')
@@ -20,6 +22,7 @@ const commandsAtom = atom({ plugin: 'menu', key: 'commands' } as const, [])
 const modeAtom = atom({ plugin: 'menu', key: 'mode' } as const, null)
 const effortAtom = atom({ plugin: 'menu', key: 'effort' } as const, null)
 const effortChosenAtom = atom({ plugin: 'menu', key: 'effortChosen' } as const, null)
+const previewAtom = atom({ plugin: 'menu', key: 'previewSlug' } as const, null)
 
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
@@ -46,9 +49,21 @@ export const register: Register = on => {
     }
     // Depois de um reload o pane pode seguir aberto (ou ter fechado sem o hook ver).
     await syncOpen($)
+    // O catálogo de temas mora no módulo: um reload o zera, e o disco o devolve. Sem catálogo
+    // baixado nada é lido; o download só acontece na primeira ida à aba Tema.
+    await loadCatalog($).catch(() => false)
+    // O tema guardado: o nome para o menu e o fundo do Windows Terminal desta aba.
+    await restoreSession($).catch(() => undefined)
 
     return next(e)
   })
+
+  // O fim da sessão devolve o esquema original ao perfil do Windows Terminal; um /clear segue na
+  // mesma aba e no mesmo processo, então fica com o tema.
+  on('session.end', async ($, e, next) => {
+    if (e.reason !== 'clear') await releaseTerminal($)
+    return next(e)
+  }).catch(($, e, next) => next(e))
 
   // `/menu` abre (ou traz para a frente) o menu; `/menu tema` abre direto numa aba.
   on('command.run', { command: 'menu' }, async ($, e) => {
@@ -88,11 +103,35 @@ export const register: Register = on => {
   // O botão do menu na ponta direita da linha sob o prompt, depois do que os outros mods desenham.
   on('ui.render', { component: 'PromptHint' }, async ($, e, next) => Hint($, e, () => next(e)))
 
-  // Como quer que o pane feche (Esc, o ✕ do engine, o botão), o botão sob o prompt volta a ▲.
+  // Como quer que o pane feche (Esc, o ✕ do engine, o botão), o botão sob o prompt volta a ▲ e
+  // uma prévia de tema não guardada volta ao tema guardado.
   on('ui.close', { id: PANE }, async ($, e, next) => {
     const closed = await next(e)
     await update($, isOpenAtom, () => false)
+    await revertPreview($, await read($, previewAtom)).catch(() => undefined)
     return closed
+  }).catch(($, e, next) => next(e))
+
+  // Aba Tema: a roda do mouse e as setas movem a janela da lista, não o pane, então o cabeçalho
+  // (busca, filtros, ações) fica parado. Nas outras abas, a rolagem é a do engine.
+  on('ui.scroll', { requestId: PANE }, async ($, e, next) => {
+    if ((await read($, tabAtom)) !== 'tema' || e.by === 0) return next(e)
+    const { top } = await themeWindow($, e.bodyRows)
+    await scrollThemes($, top + e.by, e.bodyRows)
+    return {}
+  }).catch(($, e, next) => next(e))
+
+  // Aba Tema: o foco num tema fora da janela traz a janela até ele; parado num tema, a prévia.
+  on('ui.focus', { requestId: PANE }, async ($, e, next) => {
+    const moved = await next(e)
+    const slug = e.element?.startsWith('theme:') ? e.element.slice('theme:'.length) : null
+    if (slug === null || moved.deny !== undefined || (await read($, tabAtom)) !== 'tema') return moved
+    const { found, top, rows } = await themeWindow($)
+    const at = found.findIndex(t => t.slug === slug)
+    if (at >= 0 && at < top) await scrollThemes($, at)
+    else if (at >= top + rows) await scrollThemes($, at - rows + 1)
+    schedulePreview($, slug)
+    return moved
   }).catch(($, e, next) => next(e))
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
@@ -104,10 +143,13 @@ export const register: Register = on => {
     ])
     const onTab = (next: MenuTab) => {
       void (async () => {
+        // Saindo da aba Tema, uma prévia não guardada volta ao tema guardado.
+        if (next !== 'tema') await revertPreview($, await read($, previewAtom))
         await update($, tabAtom, () => next)
         await update($, noteAtom, () => null)
         await $.store.set('tab', next)
         await refreshCache($)
+        if (next === 'tema') await ensureCatalog($)
       })().catch(error => $.ui.toast(`menu: ${reason(error)}`))
     }
     const ownedBy = (plugin: string) => rows.filter(r => r.key.startsWith(`${plugin}.`))

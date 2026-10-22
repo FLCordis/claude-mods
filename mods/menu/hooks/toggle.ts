@@ -1,8 +1,10 @@
-import { atom, update } from 'claude-code'
+import { atom, read, update } from 'claude-code'
 import type { EngineInterface, UiOpenResult } from 'claude-code'
 
 import type { MenuTab } from '../types'
 import { refreshCache } from './cache'
+import { revertPreview } from './themes/apply'
+import { ensureCatalog } from './themes/catalog'
 
 export const PANE = 'menu'
 
@@ -13,6 +15,7 @@ const PANE_COLUMNS = 64
 const tabAtom = atom({ plugin: 'menu', key: 'tab' } as const, 'sessao')
 const noteAtom = atom({ plugin: 'menu', key: 'note' } as const, null)
 const isOpenAtom = atom({ plugin: 'menu', key: 'isOpen' } as const, false)
+const previewAtom = atom({ plugin: 'menu', key: 'previewSlug' } as const, null)
 
 export const TAB_IDS: readonly MenuTab[] = ['sessao', 'tema', 'orquestrador', 'hud', 'configs']
 export const isTab = (value: unknown): value is MenuTab => TAB_IDS.some(id => id === value)
@@ -34,12 +37,19 @@ export async function openMenu($: EngineInterface, tab?: MenuTab): Promise<UiOpe
   await refreshCache($)
   const opened = await $.ui.open({ id: PANE, title: 'menu', focus: true, closeOnEscape: true, rows: PANE_ROWS, columns: PANE_COLUMNS })
   await update($, isOpenAtom, () => true)
+  // Abrindo na aba Tema: o catálogo carrega (ou baixa) com o menu já na tela.
+  if (isTab(kept) && kept === 'tema') void ensureCatalog($).catch(() => undefined)
   return opened
 }
 
+/**
+ * Fecha o menu. O `$.ui.close` do próprio plugin não passa pelo hook `ui.close` dele, então o que
+ * aquele hook faz num fechamento da pessoa (o ▲ do botão, desfazer a prévia de tema) vem aqui também.
+ */
 export async function closeMenu($: EngineInterface): Promise<void> {
   if (await isMenuOpen($)) await $.ui.close({ id: PANE })
   await update($, isOpenAtom, () => false)
+  await revertPreview($, await read($, previewAtom)).catch(() => undefined)
 }
 
 /** O botão sob o prompt: fecha o menu aberto, abre o fechado. */

@@ -46,6 +46,10 @@ export type WorldOptions = {
   noConfigSet?: boolean
   /** `config.set` responde `{ deny }` com esta razão (uma linha que só o diálogo muda). */
   configDeny?: string
+  /** O que o download do catálogo de temas responde: o corpo, ou um status de erro. */
+  fetch?: { text: string } | { status: number }
+  /** Arquivos que já existem no disco (além do settings.json de usuário). */
+  files?: Record<string, string>
 }
 
 export type World = {
@@ -57,11 +61,16 @@ export type World = {
   store: Record<string, unknown>
   /** O effort com que cada `turn.step` chegou ao fundo, depois dos hooks. */
   steps: (string | number | undefined)[]
+  /** As URLs que o mod baixou. */
+  fetches: string[]
 }
 
-/** O settings.json gravado pelo mod (a chave termina em settings.json), ou undefined. */
+/** O settings.json de usuário (o de `~/.claude`), e não o do Windows Terminal. */
+const isUserSettings = (path: string) => /(^|\/)\.claude\/settings\.json$/.test(path)
+
+/** O settings.json de usuário gravado pelo mod, ou undefined. */
 export function settingsWritten(w: World): string | undefined {
-  return Object.entries(w.files).find(([path]) => path.endsWith('settings.json'))?.[1]
+  return Object.entries(w.files).find(([path]) => isUserSettings(path))?.[1]
 }
 
 /** Sessão, settings vazios, /config conforme pedido, pane sempre colocado. */
@@ -77,10 +86,23 @@ export function world(
     noFsRead = false,
     noConfigSet = false,
     configDeny,
+    fetch,
+    files = {},
   }: WorldOptions = {},
 ): World {
-  const w: World = { panes: [], opens: [], runs: [], sets: [], files: {}, store: { ...store }, steps: [] }
+  const w: World = { panes: [], opens: [], runs: [], sets: [], files: { ...files }, store: { ...store }, steps: [], fetches: [] }
+  on('http.fetch', (_$, e) => {
+    w.fetches.push(e.url)
+    if (fetch === undefined) throw new Error('sem rede no teste')
+    if ('status' in fetch) return { value: { status: fetch.status, ok: false, headers: {}, text: '' } }
+    return { value: { status: 200, ok: true, headers: {}, text: fetch.text } }
+  })
   on('session.start', (_$, e) => ({ cwd: e.cwd }))
+  on('session.end', (_$, e) => ({ sessionId: e.sessionId }))
+  on('store.delete', (_$, e) => {
+    delete w.store[e.key]
+    return { value: undefined }
+  })
   on('command.register', () => ({ value: { command: 'menu' } }))
   on('session.model', () => ({ value: 'claude-fable-5-1' }))
   on('session.root', () => ({ value: 'C:/proj' }))
@@ -110,16 +132,22 @@ export function world(
       return {}
     })
   }
-  on('fs.exists', (_$, e) => ({ value: e.path.endsWith('settings.json') ? settingsText !== null || noFsRead : e.path in w.files }))
+  // O engine entrega os caminhos com `\` no Windows: o mundo guarda tudo com `/`.
+  const slash = (path: string) => path.replaceAll('\\', '/')
+  on('fs.exists', (_$, e) => {
+    const path = slash(e.path)
+    return { value: path in w.files || (isUserSettings(path) && (settingsText !== null || noFsRead)) }
+  })
   if (!noFsRead) {
     on('fs.read', (_$, e) => {
-      if (e.path in w.files) return { value: w.files[e.path]! }
-      if (settingsText === null) throw new Error('ENOENT')
+      const path = slash(e.path)
+      if (path in w.files) return { value: w.files[path]! }
+      if (!isUserSettings(path) || settingsText === null) throw new Error('ENOENT')
       return { value: settingsText }
     })
   }
   on('fs.write', (_$, e) => {
-    w.files[e.path] = e.text
+    w.files[slash(e.path)] = e.text
     return { value: undefined }
   })
   on('classic.UserPromptSubmit', () => ({}))

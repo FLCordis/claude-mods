@@ -57,12 +57,17 @@ export function withDefaultMode(text: string, mode: string): string {
   return JSON.stringify(settings, null, 2) + '\n'
 }
 
-/** O settings.json de usuário: `CLAUDE_CONFIG_DIR`, senão `~/.claude`. */
-export async function settingsPath($: EngineInterface): Promise<string> {
-  const configDir = await $.env.get('CLAUDE_CONFIG_DIR')
-  if (configDir !== undefined && configDir !== '') return `${configDir}/settings.json`
+/** A pasta de configuração do Claude Code, com `/`: `CLAUDE_CONFIG_DIR`, senão `~/.claude`. */
+export async function configDir($: EngineInterface): Promise<string> {
+  const custom = await $.env.get('CLAUDE_CONFIG_DIR')
+  if (custom !== undefined && custom !== '') return custom.replaceAll('\\', '/')
   const home = (await $.env.get('USERPROFILE')) ?? (await $.env.get('HOME')) ?? ''
-  return `${home}/.claude/settings.json`
+  return `${home.replaceAll('\\', '/')}/.claude`
+}
+
+/** O settings.json de usuário, dentro de `configDir`. */
+export async function settingsPath($: EngineInterface): Promise<string> {
+  return `${await configDir($)}/settings.json`
 }
 
 /**

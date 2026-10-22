@@ -1,124 +1,247 @@
+import { atom, read, update } from 'claude-code'
 import type { ConfigRow, EngineInterface } from 'claude-code'
 
-import { Chip, ChipRow, SectionLabel } from '../chips'
-import { writeUserSetting } from '../settings'
-import type { PaneEvent } from '../shell'
+import type { MenuThemeFilter } from '../../types'
 import { refreshCache } from '../cache'
+import type { PaneEvent } from '../shell'
 import { note, reason, runCommand } from '../state'
+import { CUSTOM_THEME, applyTheme, restoreOriginal } from '../themes/apply'
+import type { ThemeChoice } from '../themes/apply'
+import { downloadCatalog, themeEntries } from '../themes/catalog'
+import type { ThemeEntry } from '../themes/palette'
 
-/** A linha do /config que escolhe o tema, quando este build a expõe. */
-export function themeRow(rows: readonly ConfigRow[]): ConfigRow | undefined {
-  return rows.find(r => r.kind === 'choice' && (r.key === 'theme' || /^(theme|tema)$/i.test(r.label)))
+const queryAtom = atom({ plugin: 'menu', key: 'themeQuery' } as const, '')
+const filterAtom = atom({ plugin: 'menu', key: 'themeFilter' } as const, 'todos')
+const scrollAtom = atom({ plugin: 'menu', key: 'themeScroll' } as const, 0)
+const versionAtom = atom({ plugin: 'menu', key: 'themesVersion' } as const, 0)
+const statusAtom = atom({ plugin: 'menu', key: 'themesStatus' } as const, 'idle')
+const errorAtom = atom({ plugin: 'menu', key: 'themesError' } as const, null)
+const chosenAtom = atom({ plugin: 'menu', key: 'themeChosen' } as const, null)
+const previewAtom = atom({ plugin: 'menu', key: 'previewSlug' } as const, null)
+
+const FILTERS: readonly { id: MenuThemeFilter; label: string }[] = [
+  { id: 'todos', label: 'todos' },
+  { id: 'escuros', label: 'escuros' },
+  { id: 'claros', label: 'claros' },
+]
+
+/**
+ * Linhas do corpo que não são da lista: as do pane fora do corpo (abas, régua, margem, nota,
+ * régua, teclas), as do cabeçalho da aba (atual, aviso, busca, filtros, ações) e uma de folga
+ * para as ações que quebram linha num terminal estreito.
+ */
+const FIXED_ROWS = 7 + 5 + 1
+
+// As linhas do corpo no último desenho: o hook de foco não recebe a medida e precisa dela.
+let lastBodyRows = 20
+
+/** Quantos temas cabem na janela da lista. */
+export const listRows = (bodyRows: number, hasStatus: boolean): number => Math.max(3, bodyRows - FIXED_ROWS - (hasStatus ? 1 : 0))
+
+/** Os temas que casam com a busca (no nome, sem diferenciar maiúsculas) e o filtro de claro/escuro. */
+export function filterThemes(list: readonly ThemeEntry[], query: string, filter: MenuThemeFilter): ThemeEntry[] {
+  const needle = query.trim().toLowerCase()
+  return list.filter(
+    t =>
+      (filter === 'todos' || (filter === 'claros') === (t.variant === 'light')) &&
+      (needle === '' || t.name.toLowerCase().includes(needle)),
+  )
+}
+
+/** A janela da lista como está agora, para os hooks de rolagem e foco. */
+export async function themeWindow($: EngineInterface, bodyRows: number = lastBodyRows) {
+  const [query, filter, top, status] = await Promise.all([read($, queryAtom), read($, filterAtom), read($, scrollAtom), read($, statusAtom)])
+  const found = filterThemes(themeEntries(), query, filter)
+  const rows = listRows(bodyRows, status === 'loading' || status === 'error')
+  return { found, top, rows }
+}
+
+/** Move a janela para começar em `top`, sem passar das pontas. */
+export async function scrollThemes($: EngineInterface, top: number, bodyRows?: number): Promise<void> {
+  const { found, rows } = await themeWindow($, bodyRows)
+  const at = Math.max(0, Math.min(Math.max(0, found.length - rows), top))
+  await update($, scrollAtom, () => at)
+}
+
+/** `1250` → `1.250`. */
+const count = (n: number) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+
+/** Roda uma ação do tema e põe o resultado (ou a recusa) na nota. */
+function act($: EngineInterface, work: () => Promise<string | void>) {
+  return () =>
+    void (async () => {
+      try {
+        const text = await work()
+        if (typeof text === 'string') await note($, text)
+      } catch (error) {
+        await note($, `recusado: ${reason(error)}`)
+      }
+      await refreshCache($)
+    })()
 }
 
 /**
- * Troca o tema: pela linha do /config quando ela aceita; quando só o diálogo dela muda o valor
- * (a recusa que o engine devolve), grava `theme` direto no settings.json de usuário.
+ * A aba Tema: o tema atual, busca, filtro claro/escuro, ações e a lista do catálogo numa janela de
+ * altura fixa que rola sozinha (roda do mouse, setas, ou o foco andando pela lista).
  */
-async function setTheme($: EngineInterface, row: ConfigRow, option: string) {
-  try {
-    const result = await $.config.set({ key: row.key, value: option })
-    if ('deny' in result && result.deny !== undefined) {
-      await writeUserSetting($, 'theme', option)
-      await note($, `tema → ${option} (settings.json)`)
-    } else {
-      await note($, `tema → ${option}`)
-    }
-  } catch (error) {
-    await note($, `recusado: ${reason(error)}`)
-  }
-  await refreshCache($)
-}
-
-/** A aba Tema: as opções de tema do Claude Code como chips e uma prévia das cores em uso. */
 export async function Tema($: EngineInterface, e: PaneEvent, rows: readonly ConfigRow[], commands: readonly string[]): Promise<JSX.Element> {
-  const { Box, Text } = $.ui.resolve(e)
-  const row = themeRow(rows)
-  const hasPicker = commands.includes('theme')
+  const els = $.ui.resolve(e)
+  const { Box, Text, Button } = els
+  const Input = 'Input' in els ? els.Input : undefined
+  lastBodyRows = e.props.scroll.bodyRows
 
-  const preview = (
-    <Box flexDirection="column">
-      {SectionLabel($, e, 'Prévia das cores do tema em uso')}
+  const [query, filter, top, , status, error, chosen, preview, os, wtProfile] = await Promise.all([
+    read($, queryAtom),
+    read($, filterAtom),
+    read($, scrollAtom),
+    read($, versionAtom),
+    read($, statusAtom),
+    read($, errorAtom),
+    read($, chosenAtom),
+    read($, previewAtom),
+    $.env.get('OS'),
+    $.env.get('WT_PROFILE_ID'),
+  ])
+  const all = themeEntries()
+  const found = filterThemes(all, query, filter)
+  const hasStatus = status === 'loading' || status === 'error'
+  const shown = listRows(e.props.scroll.bodyRows, hasStatus)
+  const first = Math.max(0, Math.min(top, Math.max(0, found.length - shown)))
+  const live = rows.find(r => r.key === 'theme')?.value === CUSTOM_THEME
+  const paintsTerminal = os === 'Windows_NT' && wtProfile !== undefined && wtProfile !== ''
+
+  const choose = (choice: ThemeChoice) => act($, () => applyTheme($, choice))
+  const setQuery = (text: string) =>
+    void (async () => {
+      await update($, queryAtom, () => text)
+      await update($, scrollAtom, () => 0)
+    })()
+
+  const header = (
+    <Box key="themes:current" flexDirection="row" justifyContent="space-between" columnGap={1}>
       <Text wrap="truncate-end">
-        <Text color="claude">● claude</Text>
-        {'  '}
-        <Text color="success">✔ sucesso</Text>
-        {'  '}
-        <Text color="warning">⚠ aviso</Text>
-        {'  '}
-        <Text color="error">✖ erro</Text>
-        {'  '}
-        <Text color="suggestion">sugestão</Text>
+        <Text color="subtle">Atual </Text>
+        <Text bold>{chosen ?? 'o do Claude Code'}</Text>
       </Text>
-      <Text wrap="truncate-end">
-        <Text color="planMode">plan</Text>
-        {'  '}
-        <Text color="autoAccept">accept edits</Text>
-        {'  '}
-        <Text color="permission">permissão</Text>
-        {'  '}
-        <Text color="remember">memória</Text>
-        {'  '}
-        <Text color="subtle">sutil</Text>
-        {'  '}
-        <Text color="inactive">inativo</Text>
-      </Text>
-      <Text wrap="truncate-end">
-        <Text color="diffAdded">+ linha adicionada</Text>
-        {'  '}
-        <Text color="diffRemoved">- linha removida</Text>
-        {'  '}
-        <Text color="inverseText" backgroundColor="claude">
-          {' '}selecionado{' '}
-        </Text>
+      <Text color="subtle" dimColor>
+        {found.length > shown ? `${first + 1}–${Math.min(found.length, first + shown)} de ${count(found.length)}` : `${count(found.length)} temas`}
       </Text>
     </Box>
   )
 
-  const picker = hasPicker
-    ? [
-        Chip($, e, {
-          key: 'theme:native',
-          label: 'seletor nativo (/theme)',
-          onPress: () => void runCommand($, 'theme', undefined, { close: true }),
-        }),
-      ]
-    : []
+  const notice = (
+    <Text key="themes:notice" color="subtle" dimColor wrap="truncate-end">
+      {live ? 'ao vivo: o foco num tema mostra a prévia, enter guarda' : 'o primeiro tema pede reiniciar o Claude Code uma vez; depois é ao vivo'}
+      {paintsTerminal ? '' : ' · fundo do terminal só no Windows Terminal'}
+    </Text>
+  )
 
-  if (row === undefined) {
-    return (
-      <Box flexDirection="column" rowGap={1}>
-        <Text color="subtle" dimColor>
-          este build não expõe o tema no /config
-        </Text>
-        {picker.length > 0 && ChipRow($, e, picker)}
-        {preview}
-      </Box>
+  const search =
+    Input === undefined ? null : (
+      <Input
+        key="themes:search"
+        label="Buscar"
+        placeholder={all.length > 0 ? `${count(all.length)} temas do Gogh` : 'nome do tema'}
+        value={query}
+        submitLabel="buscar"
+        onInput={setQuery}
+        onSubmit={setQuery}
+      />
     )
-  }
+
+  const filters = (
+    <Box key="themes:filters" flexDirection="row" columnGap={2}>
+      {FILTERS.map(f => {
+        const active = f.id === filter
+        return (
+          <Button
+            key={`themes:filter:${f.id}`}
+            plain
+            label={f.label}
+            variant={active ? 'primary' : 'secondary'}
+            onPress={() =>
+              void (async () => {
+                await update($, filterAtom, () => f.id)
+                await update($, scrollAtom, () => 0)
+              })()
+            }
+          >
+            <Text color={active ? 'claude' : 'subtle'} bold={active}>
+              {active ? '● ' : '○ '}
+              {f.label}
+            </Text>
+          </Button>
+        )
+      })}
+    </Box>
+  )
+
+  const actions = (
+    <Box key="themes:actions" flexDirection="row" flexWrap="wrap" columnGap={2}>
+      <Button key="themes:base:dark" plain dimColor label="◐ padrão escuro" onPress={choose({ kind: 'base', base: 'dark' })} />
+      <Button key="themes:base:light" plain dimColor label="◑ padrão claro" onPress={choose({ kind: 'base', base: 'light' })} />
+      <Button key="themes:original" plain dimColor label="↺ tema original" onPress={act($, () => restoreOriginal($))} />
+      <Button key="themes:download" plain dimColor label="⟳ baixar de novo" onPress={act($, () => downloadCatalog($))} />
+      {commands.includes('theme') && (
+        <Button key="themes:native" plain dimColor label="/theme" onPress={() => void runCommand($, 'theme', undefined, { close: true })} />
+      )}
+    </Box>
+  )
+
+  const statusLine =
+    status === 'loading' ? (
+      <Text key="themes:status" color="suggestion">
+        Baixando os temas do Gogh…
+      </Text>
+    ) : status === 'error' ? (
+      <Text key="themes:status" color="error" wrap="truncate-end">
+        Não deu para baixar os temas: {error ?? 'erro desconhecido'} (⟳ tenta de novo)
+      </Text>
+    ) : null
+
+  // Uma linha a mais que a janela: o foco passa da última visível e a janela vai atrás dele.
+  const items = found.slice(first, first + shown + 1).map(t => {
+    const isChosen = chosen === t.name
+    const isPreview = preview === t.slug
+    return (
+      <Button key={`theme:${t.slug}`} plain label={t.name} onPress={choose({ kind: 'catalog', entry: t })}>
+        {t.colors.slice(1, 7).map((c, i) => (
+          <Text key={String(i)} color={c}>
+            ■
+          </Text>
+        ))}
+        <Text color={t.foreground}>■ </Text>
+        <Text bold={isChosen} wrap="truncate-end">
+          {t.name}
+        </Text>
+        {t.variant === 'light' && <Text color="subtle"> ☀</Text>}
+        {isChosen && <Text color="success"> ✓</Text>}
+        {isPreview && !isChosen && <Text color="suggestion"> prévia</Text>}
+      </Button>
+    )
+  })
+
+  const empty =
+    all.length === 0 ? (
+      <Text key="themes:empty" color="subtle" dimColor>
+        {status === 'loading' ? '' : 'Nenhum tema baixado ainda: ⟳ baixar de novo.'}
+      </Text>
+    ) : found.length === 0 ? (
+      <Text key="themes:empty" color="subtle" dimColor>
+        Nenhum tema com “{query}”.
+      </Text>
+    ) : null
 
   return (
-    <Box flexDirection="column" rowGap={1}>
-      <Box flexDirection="column">
-        {SectionLabel($, e, row.isLocked ? `${row.label} 🔒 (definido por política)` : row.label)}
-        {row.isLocked ? (
-          <Text>{String(row.value)}</Text>
-        ) : (
-          ChipRow($, e, [
-            ...(row.options ?? []).map(option =>
-              Chip($, e, {
-                key: `theme:${option}`,
-                label: option,
-                active: option === row.value,
-                color: option === row.value ? 'warning' : 'text',
-                onPress: () => void setTheme($, row, option),
-              }),
-            ),
-            ...picker,
-          ])
-        )}
-      </Box>
-      {preview}
+    <Box flexDirection="column">
+      {header}
+      {notice}
+      {search}
+      {filters}
+      {actions}
+      {statusLine}
+      {empty}
+      {items}
     </Box>
   )
 }

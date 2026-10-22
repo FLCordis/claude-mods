@@ -1,7 +1,10 @@
 {
   "name": "flcordis-mods",
   "description": "Mods do Claude Code feitos pelo Flávio: HUD de sessão, painel de agentes e o que vier.",
-  "owner": { "name": "Flávio Magalhães", "url": "https://github.com/FLCordis" },
+  "owner": {
+    "name": "Flávio Magalhães",
+    "url": "https://github.com/FLCordis"
+  },
   "plugins": [
     {
       "name": "terminal-hud",
@@ -12,6 +15,11 @@
       "name": "orquestrador",
       "source": "./mods/orquestrador",
       "description": "Painel ao lado da transcrição com a árvore de agentes ativos: quem é, de quem nasceu, o que faz, modelo, effort, tokens e contexto."
+    },
+    {
+      "name": "menu",
+      "source": "./mods/menu",
+      "description": "Menu com abas acima do prompt: sessão (modelo, effort, modo), orquestrador, hud, tema e todas as configs do /config, tudo clicável."
     }
   ]
 }

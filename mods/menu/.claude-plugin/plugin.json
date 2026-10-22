@@ -1,0 +1,12 @@
+{
+  "name": "menu",
+  "version": "0.1.0",
+  "description": "Menu com abas: sessão (modelo, effort, modo), orquestrador, hud e configs, tudo clicável.",
+  "author": {
+    "name": "Flávio Magalhães",
+    "url": "https://github.com/FLCordis"
+  },
+  "repository": "https://github.com/FLCordis/claude-mods",
+  "license": "MIT",
+  "types": "./types/index.d.ts"
+}

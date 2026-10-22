@@ -17,6 +17,11 @@
       "description": "Painel ao lado da transcrição com a árvore de agentes ativos: quem é, de quem nasceu, o que faz, modelo, effort, tokens e contexto."
     },
     {
+      "name": "zen",
+      "source": "./mods/zen",
+      "description": "Modo Zen: esconde as chamadas de tool e mostra uma faixa de progresso acima do prompt, com os passos do plano que o Claude mantém por uma tool própria."
+    },
+    {
       "name": "menu",
       "source": "./mods/menu",
       "description": "Menu com abas, aberto pelo botão sob o prompt, em português ou inglês: sessão (modelo, effort, modo), 1.250 temas com troca ao vivo e fundo do Windows Terminal, foco (zen), orquestrador, uso (terminal-hud) e todas as configs do /config, tudo clicável."

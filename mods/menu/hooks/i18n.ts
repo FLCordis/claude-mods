@@ -76,7 +76,7 @@ export const MSG = {
   // Abas dos mods
   configuration: { pt: 'Configuração', en: 'Configuration' },
   noConfiguration: { pt: 'sem configuração', en: 'no configuration' },
-  notLoaded: { pt: (mod: string) => `${mod} não está carregado`, en: (mod: string) => `${mod} is not loaded` },
+  notLoaded: { pt: (mod: string) => `o mod ${mod} não está carregado`, en: (mod: string) => `the ${mod} mod is not loaded` },
   main: { pt: 'principal', en: 'main' },
   active: { pt: (n: number) => `${n} ativo${n === 1 ? '' : 's'}`, en: (n: number) => `${n} active` },
   noAgents: { pt: 'nenhum agente ativo', en: 'no active agent' },
@@ -87,8 +87,8 @@ export const MSG = {
   failed: { pt: 'falhou', en: 'failed' },
   done: { pt: 'concluído', en: 'done' },
   zenInstall: {
-    pt: '/plugin install zen@flcordis-mods: esconde as chamadas de tool e mostra uma faixa de progresso acima do prompt.',
-    en: '/plugin install zen@flcordis-mods: hides tool calls and shows a progress band above the prompt.',
+    pt: 'Esta aba é dele: o Modo Zen esconde as chamadas de tool e mostra uma faixa de progresso acima do prompt. Para instalar: /plugin install zen --marketplace FLCordis/claude-mods',
+    en: 'This tab is for it: Zen mode hides tool calls and shows a progress band above the prompt. To install: /plugin install zen --marketplace FLCordis/claude-mods',
   },
   zenOn: { pt: '● ligado', en: '● on' },
   zenOff: { pt: '○ desligado', en: '○ off' },

@@ -9,6 +9,7 @@ Na prompt de uma sessão do Claude Code no terminal:
 ```
 /plugin install terminal-hud --marketplace FLCordis/claude-mods
 /plugin install orquestrador --marketplace FLCordis/claude-mods
+/plugin install zen --marketplace FLCordis/claude-mods
 /plugin install menu --marketplace FLCordis/claude-mods
 ```
 
@@ -102,6 +103,35 @@ Fora do painel: um toast quando um subagente passa de 80% do contexto, e uma lin
 - No terminal, o painel encosta ao lado da transcrição só em tela cheia com 110 colunas ou mais (144 quando abre sozinho, até o primeiro `/orq` da sessão). Fora disso aparece acima do prompt.
 - Agentes que não passam pela tool Agent (um fork de skill) entram pela reconciliação de 5 em 5 segundos, sem modelo até a primeira resposta.
 
+### zen
+
+Modo Zen: as chamadas de tool e o que elas devolvem somem da transcrição (ficam só as mensagens de texto do Claude), e uma faixa **acima** do prompt mostra o andamento:
+
+```
+╭──────────────────────────────────────────────────────────────────────────╮
+│ ✶ Refatorar o menu                                            1m12s  [–] │
+│ passo 2 de 4   ████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░   50% │
+│ ● Ler os arquivos do menu                                          feito │
+│ ◉ Reescrever a moldura                                             agora │
+│ ○ Atualizar os testes                                             depois │
+│ ○ Atualizar o README                                              depois │
+╰──────────────────────────────────────────────────────────────────────────╯
+```
+
+| Parte | Como funciona |
+| --- | --- |
+| **Faixa** | Cada rodada da sessão principal abre uma tarefa com o prompt como título, o tempo decorrido e uma barra de progresso. No fim a faixa marca concluído (ou interrompido, num Esc ou erro) e some alguns segundos depois. `[–]` recolhe numa linha, `[+]` abre de novo. |
+| **Passos** | Com o Zen ligado, cada prompt digitado leva ao Claude uma instrução (nunca mostrada) para manter o plano por uma tool própria, `mcp__zen__progress`, com o plano inteiro a cada chamada. A lista de tarefas do próprio Claude Code (TodoWrite, TaskCreate, TaskUpdate) também move a faixa. Subagentes não mexem nela. |
+| **Tools escondidas** | `ToolUse`, `ToolResult`, `ToolProgress` e grupos recolhidos não são desenhados; um grupo expandido com ctrl+o aparece. |
+
+**Configuração.** Ao instalar, o Claude Code pergunta `enabled` (ligado ou não; padrão desligado) e `bandColor` (`acento`, `azul`, `verde`, `roxo` ou `arco-iris`). Os dois também estão na aba Foco do menu e no `/config`; ligar ou desligar recarrega o mod.
+
+**Limitações.**
+
+- A faixa depende do Claude chamar a tool: num prompt que ele resolve sem plano, fica só o título, o tempo e a barra em 0% até o fim.
+- Desligado, o mod não registra a tool nem muda o prompt: nada do Zen chega ao Claude.
+- Com uma pesquisa de satisfação do Claude Code acima do prompt, a faixa cede a linha.
+
 ### menu
 
 Uma janela com abas, aberta pelo botão `◆ menu ▲` na ponta direita da linha **sob** o prompt (depois da régua do terminal-hud), ou por `/menu` (`/menu tema` abre direto numa aba; os nomes em inglês e os antigos, `zen` e `hud`, também valem). O mesmo botão fecha (`▼`). As abas são desenhadas como as de um navegador: a ativa numa caixa que se emenda na régua, as outras só em texto, e `esc ×` na ponta. Abre com o teclado nela (Tab e setas andam, Enter escolhe, a aba ativa já vem focada) e Esc ou `esc ×` fecha. A janela tem sempre a mesma altura, em toda aba, para os botões não mudarem de lugar entre um clique e outro. Em tela cheia com 110 colunas ou mais ela encosta ao lado da transcrição; fora disso aparece acima do prompt. A última aba aberta e o idioma (Português ou English, no rodapé) são lembrados entre sessões.
@@ -173,7 +203,7 @@ Toda ação deixa uma linha de nota acima do rodapé (`modelo → opus`, `modo p
 - O clique no botão `◆ menu` funciona no terminal em tela cheia (onde o Claude Code repassa cliques); fora dela, use `/menu`.
 - **Tema, primeira vez:** o Claude Code só passa a acompanhar o arquivo `~/.claude/themes/menu.json` quando o tema `custom:menu` já estava em vigor ao iniciar. A primeira escolha grava `theme: "custom:menu"` no `settings.json` e pede para reiniciar o Claude Code uma vez; daí em diante toda troca (e a prévia) é ao vivo. Trocar o tema pelo `/theme` desliga isso até a próxima escolha no menu.
 - **Windows Terminal:** o mod reescreve o `settings.json` do WT (comentários do arquivo não são mantidos; o original fica no `.menu.bak`). Um perfil com `background` próprio ignora o fundo do esquema. Várias sessões no mesmo perfil dividem o esquema, e o original volta quando a última delas fecha (uma sessão que caiu sem fechar deixa de contar depois de 3 minutos). Fora do Windows Terminal só as cores do Claude Code mudam.
-- As abas Foco, Orquestrador e Uso precisam dos mods instalados (zen, orquestrador e terminal-hud); sem eles, a aba diz que o mod não está carregado (as configurações continuam editáveis).
+- As abas Foco, Orquestrador e Uso precisam dos mods instalados (zen, orquestrador e terminal-hud; a aba diz qual); sem eles, a aba diz que o mod não está carregado (as configurações continuam editáveis).
 - Comandos e painéis rodam quando a sessão fica ociosa; numa recusa, o menu fica aberto e a nota mostra a razão.
 - No celular (Claude Code mobile) os campos de texto viram só leitura; o resto funciona por toque.
 

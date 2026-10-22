@@ -1,0 +1,33 @@
+{
+  "name": "zen",
+  "version": "0.1.0",
+  "description": "Modo Zen: esconde as chamadas de tool e mostra uma faixa de progresso acima do prompt, com os passos que o Claude mantém por uma tool própria.",
+  "author": {
+    "name": "Flávio Magalhães",
+    "url": "https://github.com/FLCordis"
+  },
+  "repository": "https://github.com/FLCordis/claude-mods",
+  "license": "MIT",
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "enabled": {
+      "type": "boolean",
+      "title": "Modo Zen ligado",
+      "description": "Esconde as chamadas de tool e o que elas devolvem; o progresso aparece numa faixa acima do prompt.",
+      "default": false
+    },
+    "bandColor": {
+      "type": "string",
+      "title": "Cor da faixa do Zen",
+      "description": "Segue o tema em uso: acento, azul, verde, roxo, ou arco-íris na barra.",
+      "options": [
+        "acento",
+        "azul",
+        "verde",
+        "roxo",
+        "arco-iris"
+      ],
+      "default": "acento"
+    }
+  }
+}

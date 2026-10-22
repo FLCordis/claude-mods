@@ -18,10 +18,11 @@ export const PANE = {
   surface: 'terminal',
 } as const
 
-export const BAND = {
+/** A linha de dica sob o prompt, onde mora o botão do menu. */
+export const HINT = {
   plugin: 'menu',
-  component: 'AbovePrompt',
-  props: { hasSurvey: false, isWorking: false, maxRows: 10, bodyColumns: 100, scroll: { offset: 0, bodyRows: 10 }, view: {} },
+  component: 'PromptHint',
+  props: { isDraft: false, isWorking: false, hint: '? for shortcuts' },
   viewport: { columns: 120, rows: 40, isFullscreen: true },
   surface: 'terminal',
 } as const
@@ -131,10 +132,10 @@ export function world(
     w.steps.push(e.effort)
     return { turnId: e.turnId, index: e.index, answer: 'ok', toolUses: [], stopReason: 'end_turn' as const, usage: null }
   })
-  // A faixa do próprio engine, abaixo do botão do menu.
-  on('ui.render', { component: 'AbovePrompt' }, ($$, e) => {
+  // A linha de dica do próprio engine (ou a régua de outro mod), à esquerda do botão do menu.
+  on('ui.render', { component: 'PromptHint' }, ($$, e) => {
     const { Text } = $$.ui.resolve(e)
-    return h(Text, { dimColor: true }, 'faixa do engine') as RenderElement
+    return h(Text, { dimColor: true }, `dica do engine: ${e.props.hint}`) as RenderElement
   })
   on('ui.panes', () => ({ value: w.panes }))
   on('ui.open', (_$, e) => {

@@ -29,15 +29,17 @@ function configSection($: EngineInterface, e: PaneEvent, rows: readonly ConfigRo
 }
 
 /** A aba do orquestrador: a sessão principal, a árvore de agentes e as configs do mod. */
-export async function Orquestrador($: EngineInterface, e: PaneEvent, rows: readonly ConfigRow[]): Promise<JSX.Element> {
+export async function Orquestrador(
+  $: EngineInterface,
+  e: PaneEvent,
+  rows: readonly ConfigRow[],
+  commands: readonly string[],
+): Promise<JSX.Element> {
   const { Box, Text } = $.ui.resolve(e)
   // O orquestrador só grava `agents` no primeiro subagente; o comando /orq, que ele registra ao
   // iniciar, diz se está carregado antes disso.
-  const [agentsRead, commands] = await Promise.all([
-    $.state.get({ plugin: 'orquestrador', key: 'agents' } as const),
-    $.command.list(),
-  ])
-  const loaded = agentsRead.version > 0 || commands.some(c => c.name === 'orq')
+  const agentsRead = await $.state.get({ plugin: 'orquestrador', key: 'agents' } as const)
+  const loaded = agentsRead.version > 0 || commands.includes('orq')
   const agents = agentsRead.value ?? {}
   if (!loaded) {
     return (

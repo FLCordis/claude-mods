@@ -1,5 +1,5 @@
 /** As abas do menu, na ordem do cabeçalho. */
-export type MenuTab = 'sessao' | 'orquestrador' | 'hud' | 'configs' | 'tema'
+export type MenuTab = 'sessao' | 'tema' | 'orquestrador' | 'hud' | 'configs'
 
 /** O que o menu lê de cada agente do orquestrador (subconjunto do contrato daquele mod). */
 export type MenuAgentRow = {
@@ -28,6 +28,12 @@ declare module 'claude-code' {
     menu: {
       /** A aba em exibição. */
       tab: MenuTab
+      /** Se o pane do menu está aberto: só para o botão sob o prompt desenhar ▲ ou ▼. */
+      isOpen: boolean
+      /** As linhas do /config, relidas ao abrir, ao trocar de aba e depois de cada ação. */
+      configRows: ConfigRow[]
+      /** Os nomes dos comandos da sessão, relidos junto com as linhas do /config. */
+      commands: string[]
       /** Resultado da última ação, desenhado sob o corpo da aba. */
       note: string | null
       /** Texto do filtro da aba Configs. */
@@ -38,8 +44,6 @@ declare module 'claude-code' {
       effort: string | null
       /** O effort escolhido no menu: reescreve cada requisição; null segue o do Claude Code. */
       effortChosen: string | null
-      /** Contador que força o redesenho depois de uma ação. */
-      tick: number
     }
     // Valores de outros mods que o menu só lê (qualquer plugin lê o estado de outro; só o dono
     // grava). Declarados aqui, e não via `dependencies`, para o menu carregar mesmo sem eles.

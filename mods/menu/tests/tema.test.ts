@@ -18,7 +18,7 @@ test('aba Tema: as opções de tema do /config viram chips, o atual em destaque,
   await start($)
   await menu($)
   const ui = await $.ui.mount(PANE)
-  expect((await ui.find({ key: 'tab:tema' }))?.props.label).toBe('4 Tema')
+  expect((await ui.find({ key: 'tab:tema' }))?.props.label).toBe('Tema')
   await $.ui.press({ plugin: 'menu', key: 'tab:tema' })
 
   const chips = (await ui.findAll({ type: 'Button' })).map(b => b.key).filter(k => k?.startsWith('theme:'))

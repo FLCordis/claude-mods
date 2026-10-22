@@ -1,33 +1,102 @@
 import { expect, mock, test } from 'claude-code/testing'
 import type { ConfigRow } from 'claude-code'
 
-import { BAND, PANE, menu, settingsWritten, start, step, world } from './world'
+import { HINT, PANE, menu, settingsWritten, start, step, world } from './world'
 
-test('/menu abre o pane com quatro abas; o botão fixo aparece acima do prompt', async ($, on) => {
+const SURFACES = ['terminal', 'desktop'] as const
+
+test('/menu abre o pane com as abas, sem segurar os toasts; a aba ativa leva o foco inicial', async ($, on) => {
   const w = world(on)
   await start($)
   const ran = await menu($)
   expect(ran.text).toMatch(/aberto/)
   expect(w.opens[0]).toMatchObject({ id: 'menu', focus: true, closeOnEscape: true })
+  expect(w.opens[0]).not.toHaveProperty('holdToasts')
 
   const ui = await $.ui.mount(PANE)
   const tabs = (await ui.findAll({ type: 'Button' })).map(b => b.props.label)
-  expect(tabs).toEqual(expect.arrayContaining(['1 Sessão', '2 orquestrador', '3 hud', '4 Tema', '5 Configs']))
-  expect((await ui.find({ key: 'tab:sessao' }))?.props.hotkey).toBe('1')
+  expect(tabs).toEqual(expect.arrayContaining(['Sessão', 'Tema', 'orquestrador', 'hud', 'Configs', 'esc ✕']))
+  expect((await ui.find({ key: 'tab:sessao' }))?.props.autoFocus).toBe(true)
+  expect((await ui.find({ key: 'tab:tema' }))?.props.autoFocus).toBeUndefined()
   await $.ui.press({ plugin: 'menu', key: 'tab:configs' })
   expect((await ui.find({ key: 'tab:configs' }))?.props.variant).toBe('primary')
+  expect((await ui.find({ key: 'tab:configs' }))?.props.autoFocus).toBe(true)
+  expect((await ui.find({ key: 'tab:sessao' }))?.props.autoFocus).toBeUndefined()
   expect(await ui.find({ type: 'Text', text: /esc fecha/ })).toBeDefined()
+
+  // O ✕ do menu fecha o pane.
+  await $.ui.press({ plugin: 'menu', key: 'menu:close' })
+  expect(w.panes).toEqual([])
   await ui.unmount()
+})
 
-  const band = await $.ui.mount(BAND)
-  expect(await band.find({ type: 'Button', text: /≡ menu/ })).toBeDefined()
-  expect(await band.find({ type: 'Text', text: /faixa do engine/ })).toBeDefined()
-  await band.unmount()
+test('/menu com o nome de uma aba abre direto nela', async ($, on) => {
+  world(on)
+  await start($)
+  await $.command.run({ command: 'menu', args: 'configs', origin: { kind: 'composer' }, presentation: { isFullscreen: true, columns: 120 } })
+  const ui = await $.ui.mount(PANE)
+  expect((await ui.find({ key: 'tab:configs' }))?.props.variant).toBe('primary')
+  await ui.unmount()
+})
 
-  // Com uma pesquisa na faixa, o mod cede a vez.
-  const survey = await $.ui.mount({ ...BAND, props: { ...BAND.props, hasSurvey: true } })
-  expect(await survey.find({ type: 'Button', text: /≡ menu/ })).toBeUndefined()
-  await survey.unmount()
+test('botão sob o prompt: fica à direita do que vem de baixo, abre e fecha o menu', async ($, on) => {
+  const w = world(on)
+  await start($)
+  for (const surface of SURFACES) {
+    const hint = await $.ui.mount({ ...HINT, surface })
+    // O que vem de baixo (a dica do engine, ou a régua do terminal-hud) segue desenhado, e um só botão.
+    expect(await hint.find({ type: 'Text', text: /dica do engine: \? for shortcuts/ })).toBeDefined()
+    const buttons = await hint.findAll({ type: 'Button' })
+    expect(buttons.map(b => b.key)).toEqual(['menu:toggle'])
+    expect(buttons[0]?.props.label).toBe('◆ menu ▲')
+    await hint.unmount()
+  }
+
+  const hint = await $.ui.mount(HINT)
+  await $.ui.press({ plugin: 'menu', key: 'menu:toggle' })
+  expect(w.panes.map(p => p.id)).toEqual(['menu'])
+  expect(w.opens[0]).toMatchObject({ id: 'menu', focus: true, closeOnEscape: true })
+  expect((await hint.find({ key: 'menu:toggle' }))?.props.label).toBe('◆ menu ▼')
+
+  await $.ui.press({ plugin: 'menu', key: 'menu:toggle' })
+  expect(w.panes).toEqual([])
+  expect((await hint.find({ key: 'menu:toggle' }))?.props.label).toBe('◆ menu ▲')
+
+  // Um pane fechado por fora, sem o hook ver (o átomo fica em ▼): o botão abre de novo, não fecha.
+  await $.ui.press({ plugin: 'menu', key: 'menu:toggle' })
+  w.panes.splice(0)
+  await $.ui.press({ plugin: 'menu', key: 'menu:toggle' })
+  expect(w.panes.map(p => p.id)).toEqual(['menu'])
+  expect(w.opens).toHaveLength(3)
+  await hint.unmount()
+})
+
+test('fechar pelo ✕ do menu volta o botão sob o prompt a ▲', async ($, on) => {
+  const w = world(on)
+  await start($)
+  await menu($)
+  const hint = await $.ui.mount(HINT)
+  const pane = await $.ui.mount(PANE)
+  expect((await hint.find({ key: 'menu:toggle' }))?.props.label).toBe('◆ menu ▼')
+  await $.ui.press({ plugin: 'menu', key: 'menu:close' })
+  expect(w.panes).toEqual([])
+  expect((await hint.find({ key: 'menu:toggle' }))?.props.label).toBe('◆ menu ▲')
+  await pane.unmount()
+  await hint.unmount()
+})
+
+test('a moldura tem a mesma altura em toda aba: o corpo do pane inteiro', async ($, on) => {
+  world(on, { config: [...ENGINE_ROWS, ORQ_ROW, HUD_ROW], commands: ['plugins'] })
+  await start($)
+  await menu($)
+  const ui = await $.ui.mount(PANE)
+  for (const tab of ['sessao', 'orquestrador', 'hud', 'configs']) {
+    await $.ui.press({ plugin: 'menu', key: `tab:${tab}` })
+    const root = await ui.find({ type: 'Box' })
+    expect(root?.props.minHeight).toBe(PANE.props.scroll.bodyRows)
+    expect(root?.props.width).toBe(PANE.props.bodyColumns)
+  }
+  await ui.unmount()
 })
 
 test('aba Sessão: modelo via /model, effort só leitura sem /effort, modo padrão no settings.json, modo atual do hook clássico', async ($, on) => {
@@ -254,7 +323,7 @@ test('terminal estreito: cada aba desenha em 56 colunas, com rótulos curtos e o
   for (const tab of ['sessao', 'orquestrador', 'hud', 'tema', 'configs']) {
     const ui = await $.ui.mount(narrow)
     await $.ui.press({ plugin: 'menu', key: `tab:${tab}` })
-    expect((await ui.find({ key: 'tab:orquestrador' }))?.props.label).toBe('2 orq')
+    expect((await ui.find({ key: 'tab:orquestrador' }))?.props.label).toBe('orq')
     expect(await ui.find({ type: 'Text', text: /esc fecha/ })).toBeDefined()
     await ui.unmount()
   }

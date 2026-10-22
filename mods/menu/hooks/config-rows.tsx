@@ -2,7 +2,8 @@ import type { ConfigRow, ConfigValue, EngineInterface } from 'claude-code'
 
 import { Chip, ChipRow } from './chips'
 import type { PaneEvent } from './shell'
-import { note, reason, redraw } from './state'
+import { refreshCache } from './cache'
+import { note, reason } from './state'
 
 /** Acima disso uma linha `choice` vira um Select em vez de uma fileira de chips. */
 const MAX_CHOICE_CHIPS = 6
@@ -16,7 +17,7 @@ export async function setConfig($: EngineInterface, row: ConfigRow, value: Confi
   } catch (error) {
     await note($, `recusado: ${reason(error)}`)
   }
-  await redraw($)
+  await refreshCache($)
 }
 
 /** Enter num campo numérico: grava o número, ou avisa que não é um. */
@@ -24,7 +25,7 @@ async function submitNumber($: EngineInterface, row: ConfigRow, text: string) {
   const n = Number(text.trim())
   if (text.trim() === '' || Number.isNaN(n)) {
     await note($, `${row.label}: "${text}" não é um número`)
-    await redraw($)
+    await refreshCache($)
     return
   }
   await setConfig($, row, n)

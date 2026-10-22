@@ -39,12 +39,17 @@ export function groupRows(rows: readonly ConfigRow[], filter: string): { owner: 
 }
 
 /** A aba Configs: filtro, todas as linhas do /config editáveis e os botões dos painéis nativos. */
-export async function Configs($: EngineInterface, e: PaneEvent, rows: readonly ConfigRow[]): Promise<JSX.Element> {
+export async function Configs(
+  $: EngineInterface,
+  e: PaneEvent,
+  rows: readonly ConfigRow[],
+  commands: readonly string[],
+): Promise<JSX.Element> {
   const els = $.ui.resolve(e)
   const { Box, Text } = els
   const Input = 'Input' in els ? els.Input : undefined
-  const [filter, commands] = await Promise.all([read($, filterAtom), $.command.list()])
-  const available = new Set(commands.map(c => c.name))
+  const filter = await read($, filterAtom)
+  const available = new Set(commands)
   const panels = PANELS.filter(name => available.has(name))
   const groups = groupRows(rows, filter)
 

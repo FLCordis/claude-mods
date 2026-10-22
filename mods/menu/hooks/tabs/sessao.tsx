@@ -5,7 +5,9 @@ import { Chip, ChipRow, SectionLabel } from '../chips'
 import { basename, prettyModel } from '../format'
 import { MODES, modeLabel, writeDefaultMode } from '../settings'
 import type { PaneEvent } from '../shell'
-import { closeMenu, note, reason, redraw, runCommand } from '../state'
+import { refreshCache } from '../cache'
+import { note, reason, runCommand } from '../state'
+import { closeMenu } from '../toggle'
 
 const modeAtom = atom({ plugin: 'menu', key: 'mode' } as const, null)
 const effortAtom = atom({ plugin: 'menu', key: 'effort' } as const, null)
@@ -63,7 +65,7 @@ async function setEffort($: EngineInterface, level: string) {
     // A linha do /config é só espelho: a reescrita da requisição é o que vale.
   }
   await note($, `effort → ${level}`)
-  await redraw($)
+  await refreshCache($)
 }
 
 async function setDefaultMode($: EngineInterface, mode: string) {
@@ -72,7 +74,7 @@ async function setDefaultMode($: EngineInterface, mode: string) {
   } catch (error) {
     await note($, `recusado: ${reason(error)}`)
   }
-  await redraw($)
+  await refreshCache($)
 }
 
 /** A aba Sessão: modelo, effort, modo em vigor, modo das novas sessões e ações rápidas. */
@@ -193,7 +195,7 @@ export async function Sessao($: EngineInterface, e: PaneEvent): Promise<JSX.Elem
                 } catch (error) {
                   await note($, `recusado: ${reason(error)}`)
                 }
-                await redraw($)
+                await refreshCache($)
               })(),
           }),
           Chip($, e, { key: 'act:context', label: 'contexto', onPress: () => void runCommand($, 'context', undefined, { close: true }) }),

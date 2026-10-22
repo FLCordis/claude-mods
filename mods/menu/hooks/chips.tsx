@@ -3,7 +3,7 @@ import type { Color, EngineInterface } from 'claude-code'
 import type { PaneEvent } from './shell'
 
 export type ChipProps = {
-  /** A chave do Button: o endereço do clique. */
+  /** A chave do Button: o endereço do clique. A caixa em volta leva `<key>-box`. */
   key: string
   label: string
   /** Em destaque: borda e texto na cor, em negrito. */
@@ -13,11 +13,11 @@ export type ChipProps = {
   onPress: () => void
 }
 
-/** Um botão em caixa arredondada, como no mod de referência: `╭────────╮ │ Opus │ ╰────────╯`. */
+/** Um botão em caixa arredondada: `╭────────╮ │ Opus │ ╰────────╯`. */
 export function Chip($: EngineInterface, e: PaneEvent, { key, label, active = false, color = 'text', onPress }: ChipProps): JSX.Element {
   const { Box, Text, Button } = $.ui.resolve(e)
   return (
-    <Box key={`chip:${key}`} borderStyle="round" borderColor={active ? color : 'subtle'} borderDimColor={!active} paddingX={1}>
+    <Box key={`${key}-box`} borderStyle="round" borderColor={active ? color : 'subtle'} borderDimColor={!active} paddingX={1}>
       <Button key={key} label={label} plain variant={active ? 'primary' : 'secondary'} onPress={onPress}>
         <Text color={color} bold={active}>
           {label}
@@ -37,12 +37,12 @@ export function ChipRow($: EngineInterface, e: PaneEvent, chips: JSX.Element[]):
   )
 }
 
-/** Uma régua `────` na largura do corpo. */
-export function Rule($: EngineInterface, e: PaneEvent): JSX.Element {
+/** Uma régua `────` na largura pedida (a do corpo, por padrão). */
+export function Rule($: EngineInterface, e: PaneEvent, columns: number = e.props.bodyColumns): JSX.Element {
   const { Text } = $.ui.resolve(e)
   return (
     <Text color="subtle" dimColor>
-      {'─'.repeat(Math.max(1, e.props.bodyColumns))}
+      {'─'.repeat(Math.max(1, columns))}
     </Text>
   )
 }

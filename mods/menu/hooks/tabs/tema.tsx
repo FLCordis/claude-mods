@@ -3,7 +3,8 @@ import type { ConfigRow, EngineInterface } from 'claude-code'
 import { Chip, ChipRow, SectionLabel } from '../chips'
 import { writeUserSetting } from '../settings'
 import type { PaneEvent } from '../shell'
-import { note, reason, redraw, runCommand } from '../state'
+import { refreshCache } from '../cache'
+import { note, reason, runCommand } from '../state'
 
 /** A linha do /config que escolhe o tema, quando este build a expõe. */
 export function themeRow(rows: readonly ConfigRow[]): ConfigRow | undefined {
@@ -26,14 +27,14 @@ async function setTheme($: EngineInterface, row: ConfigRow, option: string) {
   } catch (error) {
     await note($, `recusado: ${reason(error)}`)
   }
-  await redraw($)
+  await refreshCache($)
 }
 
 /** A aba Tema: as opções de tema do Claude Code como chips e uma prévia das cores em uso. */
-export async function Tema($: EngineInterface, e: PaneEvent, rows: readonly ConfigRow[]): Promise<JSX.Element> {
+export async function Tema($: EngineInterface, e: PaneEvent, rows: readonly ConfigRow[], commands: readonly string[]): Promise<JSX.Element> {
   const { Box, Text } = $.ui.resolve(e)
   const row = themeRow(rows)
-  const hasPicker = (await $.command.list()).some(c => c.name === 'theme')
+  const hasPicker = commands.includes('theme')
 
   const preview = (
     <Box flexDirection="column">

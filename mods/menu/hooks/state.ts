@@ -1,16 +1,11 @@
 import { atom, update } from 'claude-code'
 import type { EngineInterface } from 'claude-code'
 
-import type { MenuTab } from '../types'
-
-export const PANE = 'menu'
+import { refreshCache } from './cache'
+import { closeMenu } from './toggle'
 
 // Cada arquivo declara os atoms que lê ou grava: o validador lista os valores por arquivo.
 const noteAtom = atom({ plugin: 'menu', key: 'note' } as const, null)
-const tickAtom = atom({ plugin: 'menu', key: 'tick' } as const, 0)
-
-export const TAB_IDS: readonly MenuTab[] = ['sessao', 'orquestrador', 'hud', 'tema', 'configs']
-export const isTab = (value: unknown): value is MenuTab => TAB_IDS.some(id => id === value)
 
 /** Grava a nota sob o corpo da aba (o resultado da última ação). */
 export function note($: EngineInterface, text: string) {
@@ -20,15 +15,6 @@ export function note($: EngineInterface, text: string) {
 /** A mensagem de um erro, para a nota. */
 export function reason(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
-}
-
-/** Força o redesenho do menu depois de uma ação que mudou algo fora do `$.state`. */
-export function redraw($: EngineInterface) {
-  return update($, tickAtom, n => n + 1)
-}
-
-export async function closeMenu($: EngineInterface) {
-  if ((await $.ui.panes()).some(p => p.id === PANE)) await $.ui.close({ id: PANE })
 }
 
 /**
@@ -52,6 +38,6 @@ export async function runCommand(
     await note($, `recusado: ${reason(error)}`)
   }
   if (ok && options.close) await closeMenu($)
-  await redraw($)
+  await refreshCache($)
   return ok
 }

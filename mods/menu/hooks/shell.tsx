@@ -15,7 +15,7 @@ export const TABS: readonly TabDef[] = [
   { id: 'sessao', label: 'tabSessao', short: { pt: 'Sessão', en: 'Sess.' } },
   { id: 'tema', label: 'tabTema', short: { pt: 'Tema', en: 'Theme' } },
   { id: 'foco', label: 'tabFoco', short: { pt: 'Foco', en: 'Focus' } },
-  { id: 'orquestrador', label: 'tabOrquestrador', short: { pt: 'orq', en: 'orch' } },
+  { id: 'orquestrador', label: 'tabOrquestrador', short: { pt: 'Orq', en: 'Orch' } },
   { id: 'uso', label: 'tabUso', short: { pt: 'Uso', en: 'Usage' } },
   { id: 'configs', label: 'tabConfigs', short: { pt: 'Configs', en: 'Settings' } },
 ]
@@ -57,13 +57,15 @@ export function Shell($: EngineInterface, e: PaneEvent, { tab, lang, note, onTab
   const rows = e.props.scroll.bodyRows
   const narrow = columns < 64
   const GAP = 2
+  // Uma coluna de respiro entre a borda do pane e a primeira aba (e depois do `esc ×`).
+  const PAD = 1
 
   // Onde a caixa da aba ativa começa e quanto mede por dentro (`◆ rótulo` com um espaço de cada lado).
   const at = Math.max(0, TABS.findIndex(x => x.id === tab))
   const left = TABS.slice(0, at).reduce((sum, x) => sum + width(tabLabel(x, lang, narrow)) + GAP, 0)
   const inner = width(`◆ ${tabLabel(TABS[at]!, lang, narrow)}`) + 2
-  const top = `${' '.repeat(left)}╭${'─'.repeat(inner)}╮`
-  const bottom = `${'─'.repeat(left)}╯${' '.repeat(inner)}╰${'─'.repeat(Math.max(0, columns - left - inner - 2))}`
+  const top = `${' '.repeat(PAD + left)}╭${'─'.repeat(inner)}╮`
+  const bottom = `${'─'.repeat(PAD + left)}╯${' '.repeat(inner)}╰${'─'.repeat(Math.max(0, columns - PAD - left - inner - 2))}`
 
   const tabs = TABS.map(x => {
     const active = x.id === tab
@@ -98,7 +100,7 @@ export function Shell($: EngineInterface, e: PaneEvent, { tab, lang, note, onTab
       <Text color="subtle" dimColor wrap="truncate-end">
         {top}
       </Text>
-      <Box flexDirection="row" columnGap={GAP} width={columns}>
+      <Box flexDirection="row" columnGap={GAP} width={columns} paddingX={PAD}>
         {tabs}
         <Box flexGrow={1} />
         <Button key="menu:close" label="esc ×" plain variant="secondary" onPress={() => void closeMenu($).catch(error => $.ui.toast(`menu: ${reason(error)}`))}>

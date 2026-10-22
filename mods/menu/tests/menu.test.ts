@@ -15,13 +15,13 @@ test('/menu abre o pane com as abas, sem segurar os toasts; a aba ativa leva o f
 
   const ui = await $.ui.mount(PANE)
   const tabs = (await ui.findAll({ type: 'Button' })).map(b => b.props.label)
-  expect(tabs).toEqual(expect.arrayContaining(['Sessão', 'Tema', 'Foco', 'orquestrador', 'Uso', 'Configs']))
+  expect(tabs).toEqual(expect.arrayContaining(['Sessão', 'Tema', 'Foco', 'Orquestrador', 'Uso', 'Configs']))
   // `esc ×` na ponta da barra de abas fecha o menu, como o Esc.
   expect(tabs).toContain('esc ×')
   // A aba ativa fica numa caixa que se emenda na régua: `╭──╮` em cima, `╯  ╰──` embaixo.
   const texts = (await ui.findAll({ type: 'Text' })).map(t => t.text)
-  expect(texts[0]).toMatch(/^╭─+╮$/)
-  expect(texts.find(t => /^╯ +╰─+$/.test(t))).toBeDefined()
+  expect(texts[0]).toMatch(/^ ╭─+╮$/)
+  expect(texts.find(t => /^─╯ +╰─+$/.test(t))).toBeDefined()
   expect((await ui.find({ key: 'tab:sessao' }))?.props.autoFocus).toBe(true)
   expect((await ui.find({ key: 'tab:tema' }))?.props.autoFocus).toBeUndefined()
   await $.ui.press({ plugin: 'menu', key: 'tab:configs' })
@@ -29,8 +29,8 @@ test('/menu abre o pane com as abas, sem segurar os toasts; a aba ativa leva o f
   expect((await ui.find({ key: 'tab:configs' }))?.props.autoFocus).toBe(true)
   expect((await ui.find({ key: 'tab:sessao' }))?.props.autoFocus).toBeUndefined()
   expect(await ui.find({ type: 'Text', text: /esc fecha/ })).toBeDefined()
-  // Com a aba Configs ativa, a caixa se desloca para depois de Sessão, Tema, Foco, orquestrador e Uso.
-  const left = 'Sessão'.length + 2 + 'Tema'.length + 2 + 'Foco'.length + 2 + 'orquestrador'.length + 2 + 'Uso'.length + 2
+  // Com a aba Configs ativa, a caixa se desloca para depois de Sessão, Tema, Foco, Orquestrador e Uso (e a coluna de respiro).
+  const left = 1 + 'Sessão'.length + 2 + 'Tema'.length + 2 + 'Foco'.length + 2 + 'Orquestrador'.length + 2 + 'Uso'.length + 2
   const moved = (await ui.findAll({ type: 'Text' })).map(t => t.text)
   expect(moved[0]).toBe(`${' '.repeat(left)}╭${'─'.repeat('◆ Configs'.length + 2)}╮`)
   await $.ui.press({ plugin: 'menu', key: 'menu:close' })
@@ -65,7 +65,7 @@ test('idioma: o seletor no rodapé troca todos os textos, fica guardado e vale n
   expect(w.store.lang).toBe('en')
   expect((await ui.find({ key: 'lang:en' }))?.props.variant).toBe('primary')
   const labels = (await ui.findAll({ type: 'Button' })).map(b => b.props.label)
-  expect(labels).toEqual(expect.arrayContaining(['Session', 'Theme', 'Focus', 'orchestrator', 'Usage', 'Settings']))
+  expect(labels).toEqual(expect.arrayContaining(['Session', 'Theme', 'Focus', 'Orchestrator', 'Usage', 'Settings']))
   let joined = (await ui.findAll({ type: 'Text' })).map(t => t.text).join('|')
   expect(joined).toMatch(/Model\|/)
   expect(joined).toMatch(/New sessions start in/)
@@ -389,7 +389,7 @@ test('terminal estreito: cada aba desenha em 56 colunas, com rótulos curtos e o
   for (const tab of ['sessao', 'tema', 'foco', 'orquestrador', 'uso', 'configs']) {
     const ui = await $.ui.mount(narrow)
     await $.ui.press({ plugin: 'menu', key: `tab:${tab}` })
-    expect((await ui.find({ key: 'tab:orquestrador' }))?.props.label).toBe('orq')
+    expect((await ui.find({ key: 'tab:orquestrador' }))?.props.label).toBe('Orq')
     expect(await ui.find({ type: 'Text', text: /esc fecha/ })).toBeDefined()
     await ui.unmount()
   }

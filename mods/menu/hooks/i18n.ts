@@ -39,7 +39,7 @@ export const MSG = {
   tabSessao: { pt: 'Sessão', en: 'Session' },
   tabTema: { pt: 'Tema', en: 'Theme' },
   tabFoco: { pt: 'Foco', en: 'Focus' },
-  tabOrquestrador: { pt: 'orquestrador', en: 'orchestrator' },
+  tabOrquestrador: { pt: 'Orquestrador', en: 'Orchestrator' },
   tabUso: { pt: 'Uso', en: 'Usage' },
   tabConfigs: { pt: 'Configs', en: 'Settings' },
   // Moldura

@@ -45,6 +45,8 @@ const spent = (row: AgentRow) => row.final?.tokens ?? row.tokens
 let lingerMs = 30_000
 let warnPct = 80
 let columns = 48
+/** `band`: uma linha por agente na faixa acima do prompt; `pane`: abre o pane sozinho. */
+let placement: 'band' | 'pane' = 'band'
 let ticks = 0
 
 function patch($: EngineInterface, id: string, fn: (row: AgentRow) => AgentRow) {
@@ -130,8 +132,9 @@ async function tick($: EngineInterface) {
     })
   }
 
+  // Linha de status só quando nada desenha os agentes: a faixa sempre desenha; o pane, só se colocado.
   const live = Object.values(all).filter(row => row.status === 'running')
-  if (live.length === 0) {
+  if (live.length === 0 || placement === 'band') {
     $.ui.status(undefined)
     return
   }
@@ -148,6 +151,7 @@ export const register: Register = (on, options) => {
   lingerMs = (Number(options.doneLingerSeconds) || 30) * 1000
   warnPct = Number(options.contextWarnPercent) || 80
   columns = Number(options.columns) || 48
+  placement = options.placement === 'pane' ? 'pane' : 'band'
   ticks = 0
 
   // ── ciclo de vida ─────────────────────────────────────────────
@@ -196,7 +200,7 @@ export const register: Register = (on, options) => {
     }
     await update($, agentsAtom, all => ({ ...all, [row.id]: row }))
     await paint($, row.type)
-    if (!(await read($, mutedAtom)) && !(await isOpen($))) await openPane($)
+    if (placement === 'pane' && !(await read($, mutedAtom)) && !(await isOpen($))) await openPane($)
 
     return result
   })
@@ -319,7 +323,138 @@ export const register: Register = (on, options) => {
     return next(e)
   })
 
-  // ── desenho ───────────────────────────────────────────────────
+  // ── faixa acima do prompt: uma caixa com título, barra e uma linha por agente ──
+
+  on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+    if (e.props.hasSurvey || placement !== 'band') return next(e)
+    const all = await read($, agentsAtom)
+    const lines = orderTree(all)
+    if (lines.length === 0) return next(e)
+
+    const { Box, Text } = $.ui.resolve(e)
+    const [palette, totals, nowRead] = await Promise.all([read($, paletteAtom), read($, totalsAtom), read($, nowAtom)])
+    const now = nowRead || (await $.clock.now())
+    const width = Math.max(40, e.props.bodyColumns)
+    const inner = width - 4
+    const colorOf = (type: string) => COLORS[(palette[type] ?? 0) % COLORS.length]
+
+    const live = lines.filter(l => l.row.status === 'running').length
+    const failed = lines.filter(l => l.row.status === 'failed').length
+    const finished = lines.length - live
+    const sessionTokens = totals.tokens + lines.reduce((sum, l) => sum + spent(l.row), 0)
+    const sessionAgents = totals.done + lines.length
+    const startedAt = Math.min(...lines.map(l => l.row.startedAt))
+    const hot = lines.some(l => {
+      const ctx = l.row.ctxTokens
+      return l.row.status === 'running' && ctx !== undefined && (ctx / windowFor(l.row.model)) * 100 >= warnPct
+    })
+    const border = failed > 0 ? 'error' : hot ? 'warning' : 'success'
+
+    /** Texto à esquerda (cortado se faltar espaço) e, opcionalmente, outro à direita. */
+    const split = (left: JSX.Element, right?: JSX.Element) => (
+      <Box flexDirection="row" justifyContent="space-between" columnGap={2}>
+        <Box flexGrow={1} flexShrink={1} overflow="hidden">
+          {left}
+        </Box>
+        {right !== undefined && <Box flexShrink={0}>{right}</Box>}
+      </Box>
+    )
+
+    // Linhas da caixa: borda (2), título, barra, e uma por agente; o que não cabe vira "+N".
+    const room = Math.max(1, e.props.maxRows - 4)
+    const shown = lines.slice(0, room)
+    const hidden = lines.length - shown.length
+
+    const rowOf = (line: TreeLine) => {
+      const { row, depth } = line
+      const color = colorOf(row.type)
+      const pad = ' '.repeat(Math.min(depth, 4) * 2)
+      if (row.status !== 'running') {
+        const isFailed = row.status === 'failed'
+        const cost = row.final
+          ? `${tokens(row.final.tokens)} tok · ${duration(row.final.durationMs)}`
+          : `${tokens(row.tokens)} tok · ${duration((row.endedAt ?? now) - row.startedAt)}`
+        return (
+          <Box key={`band-${row.id}`}>
+            {split(
+              <Text wrap="truncate-end" dimColor={!isFailed}>
+                <Text color={isFailed ? 'error' : 'success'}>{pad}{isFailed ? '✖' : '✔'} </Text>
+                <Text>{row.description}</Text>
+                <Text color="subtle">  {row.type}</Text>
+              </Text>,
+              <Text color={isFailed ? 'error' : 'subtle'} dimColor={!isFailed}>
+                {isFailed ? 'falhou' : 'concluído'} · {cost}
+              </Text>,
+            )}
+          </Box>
+        )
+      }
+      const meta = [row.type, row.model ? prettyModel(row.model) : undefined, row.effort]
+        .filter((x): x is string => x !== undefined && x !== '')
+        .join(' · ')
+      const flying = row.inFlight !== undefined
+      const ctx = row.ctxTokens
+      const pct = ctx === undefined ? undefined : Math.min(100, Math.round((ctx / windowFor(row.model)) * 100))
+      return (
+        <Box key={`band-${row.id}`}>
+          {split(
+            <Text wrap="truncate-end">
+              <Text color={color}>{pad}● </Text>
+              <Text bold>{row.description}</Text>
+              <Text color="subtle">  {meta}</Text>
+            </Text>,
+            <Text>
+              <Text color={flying ? color : 'subtle'}>{flying ? '▸ ' : '· '}</Text>
+              <Text color={flying ? 'text' : 'subtle'}>{row.inFlight ?? 'pensando…'}</Text>
+              <Text color="subtle">
+                {'  '}
+                {row.tools} tools · {duration(now - row.startedAt)} · {tokens(row.tokens)} tok
+              </Text>
+              {pct !== undefined && (
+                <Text color={level(pct)}>
+                  {'  '}
+                  {bar(pct, 8)} {String(pct).padStart(3)}%
+                </Text>
+              )}
+            </Text>
+          )}
+        </Box>
+      )
+    }
+
+    // Barra de progresso: quantos agentes já concluíram, do total à vista.
+    const donePct = lines.length === 0 ? 0 : Math.round((finished / lines.length) * 100)
+    const progressLabel = `${finished} de ${lines.length} concluído${lines.length === 1 ? '' : 's'} `
+    const progressCells = Math.max(8, Math.min(60, inner - progressLabel.length - 6))
+
+    return (
+      <Box flexDirection="column" width={width} borderStyle="round" borderColor={border} paddingX={1}>
+        {split(
+          <Text wrap="truncate-end">
+            <Text color={border}>✻ </Text>
+            <Text bold>orquestrador</Text>
+            <Text color="subtle">
+              {'  '}
+              {live} ativo{live === 1 ? '' : 's'} · {finished} concluído{finished === 1 ? '' : 's'}
+              {hidden > 0 ? ` · +${hidden} ocultos` : ''}
+            </Text>
+          </Text>,
+          <Text color="subtle">
+            {duration(now - startedAt)} · sessão {sessionAgents} agente{sessionAgents === 1 ? '' : 's'} ·{' '}
+            {tokens(sessionTokens)} tok
+          </Text>,
+        )}
+        <Text wrap="truncate-end">
+          <Text color="subtle" dimColor>{progressLabel}</Text>
+          <Text color={border}>{bar(donePct, progressCells)}</Text>
+          <Text color="subtle"> {String(donePct).padStart(3)}%</Text>
+        </Text>
+        {shown.map(rowOf)}
+      </Box>
+    )
+  })
+
+  // ── pane com cartões (/orq) ───────────────────────────────────
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
     const { Box, Text } = $.ui.resolve(e)

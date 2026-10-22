@@ -10,6 +10,16 @@
   "license": "MIT",
   "types": "./types/index.d.ts",
   "userConfig": {
+    "placement": {
+      "type": "string",
+      "title": "Onde o painel aparece",
+      "description": "band: uma linha por agente na faixa acima do prompt (o pane com cartões fica no /orq). pane: abre o pane sozinho no primeiro agente.",
+      "options": [
+        "band",
+        "pane"
+      ],
+      "default": "band"
+    },
     "doneLingerSeconds": {
       "type": "number",
       "title": "Segundos que um agente concluído fica no painel",

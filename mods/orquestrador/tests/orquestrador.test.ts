@@ -1,5 +1,5 @@
 import { expect, mock, test } from 'claude-code/testing'
-import type { On } from 'claude-code'
+import type { On, RenderElement } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
 
 const PANE = {
@@ -60,6 +60,11 @@ function world(on: On, { usage = USAGE, placed = true, onTool }: WorldOptions = 
   on('ui.status', (_$, e) => {
     w.statuses.push(e.text)
     return { value: undefined }
+  })
+  // A faixa do próprio engine, que o mod deixa passar quando não tem o que mostrar.
+  on('ui.render', { component: 'AbovePrompt' }, ($$, e) => {
+    const { Text } = $$.ui.resolve(e)
+    return h(Text, { dimColor: true }, 'faixa do engine') as RenderElement
   })
   on('session.model', () => ({ value: 'claude-fable-5-1' }))
   on('session.usage', () => ({
@@ -133,7 +138,57 @@ function complete($: Engine, agentId: string, reason: 'answer' | 'error' = 'answ
   })
 }
 
-test('árvore com identidade: descrição, tipo, pai, modelo, effort, tokens e contexto', async ($, on) => {
+const BAND = {
+  plugin: 'orquestrador',
+  component: 'AbovePrompt',
+  props: {
+    hasSurvey: false,
+    isWorking: true,
+    maxRows: 20,
+    bodyColumns: 160,
+    scroll: { offset: 0, bodyRows: 19 },
+    view: {},
+  },
+} as const
+
+test('faixa acima do prompt: uma linha por agente, e nada quando não há agente', async ($, on) => {
+  mock.clock(on, { now: T0 })
+  const w = world(on)
+  await start($)
+
+  // Sem agentes a faixa fica com o engine (a árvore do mod não aparece).
+  for (const surface of SURFACES) {
+    const ui = await $.ui.mount({ ...BAND, surface })
+    expect(await ui.find({ type: 'Text', text: /faixa do engine/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /orquestrador/ })).toBeUndefined()
+    await ui.unmount()
+  }
+
+  await spawn($, 'a1', 'backend: API de agenda', 'savvy-heavy')
+  await spawn($, 'a2', 'Explorar schema do banco', 'Explore', 'a1')
+  await step($, 'a1', 'xhigh')
+
+  // No modo faixa (padrão) o pane não abre sozinho.
+  expect(w.opens).toEqual([])
+
+  for (const surface of SURFACES) {
+    const ui = await $.ui.mount({ ...BAND, surface })
+    const joined = (await ui.findAll({ type: 'Text' })).map(t => t.text).join('\n')
+    // Caixa com título e contagem, barra de concluídos, e uma linha por agente com o estado à direita.
+    expect(joined).toMatch(/✻ orquestrador  2 ativos · 0 concluídos/)
+    expect(joined).toMatch(/sessão 2 agentes · 112k tok/)
+    expect(joined).toMatch(/0 de 2 concluídos ░+ {3}0%/)
+    expect(joined).toMatch(/● backend: API de agenda  savvy-heavy · Sonnet 5\.5 · xhigh/)
+    expect(joined).toMatch(/· pensando…  0 tools · 0s · 112k tok  ████░░░░  56%/)
+    expect(joined).toMatch(/  ● Explorar schema do banco  Explore · Sonnet 5\.5/)
+    expect(await ui.find({ key: 'band-a1' })).toBeDefined()
+    expect(await ui.find({ key: 'band-a2' })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /faixa do engine/ })).toBeUndefined()
+    await ui.unmount()
+  }
+})
+
+test('árvore com identidade: descrição, tipo, pai, modelo, effort, tokens e contexto', { options: { placement: 'pane' } }, async ($, on) => {
   mock.clock(on, { now: T0 })
   const w = world(on)
   await start($)
@@ -265,7 +320,7 @@ test('contexto alto: um toast por agente ao passar do limite', async ($, on) => 
   expect(w.toasts).toEqual(['⚠ frontend: tela de agenda está em 86% do contexto'])
 })
 
-test('sem painel colocado, a linha de status resume os agentes ativos', async ($, on) => {
+test('sem painel colocado, a linha de status resume os agentes ativos', { options: { placement: 'pane' } }, async ($, on) => {
   const clock = mock.clock(on, { now: T0 })
   const w = world(on, { placed: false })
   await start($)

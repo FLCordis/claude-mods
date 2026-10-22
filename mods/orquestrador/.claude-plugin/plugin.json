@@ -1,0 +1,32 @@
+{
+  "name": "orquestrador",
+  "version": "0.1.0",
+  "description": "Painel ao lado da transcrição com a árvore de agentes ativos: quem é, de quem nasceu, o que faz, modelo, effort, tokens e contexto.",
+  "author": {
+    "name": "Flávio Magalhães",
+    "url": "https://github.com/FLCordis"
+  },
+  "repository": "https://github.com/FLCordis/claude-mods",
+  "license": "MIT",
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "doneLingerSeconds": {
+      "type": "number",
+      "title": "Segundos que um agente concluído fica no painel",
+      "description": "Depois disso a linha some e o custo vai para o total da sessão.",
+      "default": 30
+    },
+    "contextWarnPercent": {
+      "type": "number",
+      "title": "Aviso de contexto (%)",
+      "description": "Toast quando um subagente passa dessa porcentagem da janela de contexto.",
+      "default": 80
+    },
+    "columns": {
+      "type": "number",
+      "title": "Largura do painel (colunas)",
+      "description": "Largura pedida quando o painel encosta ao lado da transcrição em tela cheia.",
+      "default": 48
+    }
+  }
+}

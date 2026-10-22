@@ -54,6 +54,22 @@ export function level(percent: number): 'success' | 'warning' | 'error' {
   return 'success'
 }
 
+/** A dica sem o lembrete do atalho de modo, que o indicador do Claude Code já implica. */
+export function stripHint(hint: string): string {
+  return hint
+    .replace(/\(shift\+tab to cycle\)/iu, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+}
+
+/** Rótulo de uma janela de limite: `5h`, `sem`, `gasto`; kinds novos viram palavras (`sem fable`). */
+export function limitLabel(kind: string): string {
+  if (kind === 'five_hour') return '5h'
+  if (kind === 'seven_day') return 'sem'
+  if (kind === 'spend_limit') return 'gasto'
+  return kind.replace(/^seven_day/, 'sem').replace(/^five_hour/, '5h').replace(/_/g, ' ')
+}
+
 /** Último segmento de um caminho, Windows ou POSIX. */
 export function basename(path: string): string {
   const parts = path.split(/[\\/]+/).filter(Boolean)

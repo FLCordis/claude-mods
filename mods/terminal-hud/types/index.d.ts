@@ -7,12 +7,24 @@ export type CacheMark = {
   write: number
 }
 
+/** Uma janela de limite como o endpoint de uso da conta a descreve. */
+export type UsageWindow = {
+  /** `five_hour`, `seven_day`, `seven_day_fable`… */
+  kind: string
+  percentUsed: number
+  resetsAt?: string
+}
+
 declare module 'claude-code' {
   interface PluginState {
     'terminal-hud': {
       effort: string | null
       cache: CacheMark | null
       now: number
+      /** Janelas lidas do endpoint de uso da conta (as por modelo não vêm nos headers da API). */
+      windows: UsageWindow[]
+      /** Por que a última consulta ao endpoint não rendeu janelas; null quando rendeu. */
+      usageNote: string | null
     }
   }
 }

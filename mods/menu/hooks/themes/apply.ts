@@ -1,4 +1,4 @@
-import { atom, update } from 'claude-code'
+import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Timer } from 'claude-code'
 
 import { configDir, writeUserSetting } from '../settings'
@@ -6,7 +6,7 @@ import { findTheme } from './catalog'
 import { baseTheme, toClaudeTheme } from './convert'
 import type { ClaudeTheme } from './convert'
 import type { ThemeEntry } from './palette'
-import { paintWindowsTerminal } from './wt'
+import { paintWindowsTerminal, releaseWindowsTerminal } from './wt'
 
 /** O tema customizado do menu: sempre o mesmo arquivo, que o Claude Code relê ao vivo. */
 export const CUSTOM_THEME = 'custom:menu'
@@ -88,12 +88,12 @@ async function paint($: EngineInterface, choice: ThemeChoice): Promise<string | 
 
 /** Aplica e guarda a escolha. Devolve a nota para o menu. */
 export async function applyTheme($: EngineInterface, choice: ThemeChoice): Promise<string> {
-  cancelPreview()
+  await settlePreview()
+  await update($, previewAtom, () => null)
   const wtError = await paint($, choice)
   const live = await activate($)
   await $.store.set('theme', choice)
   await update($, chosenAtom, () => choiceName(choice))
-  await update($, previewAtom, () => null)
   const parts = [`tema → ${choiceName(choice)}`]
   if (!live) parts.push('reinicie o Claude Code uma vez para ativar; depois a troca é ao vivo')
   if (wtError !== null) parts.push(`fundo do terminal não mudou: ${wtError}`)
@@ -103,10 +103,16 @@ export async function applyTheme($: EngineInterface, choice: ThemeChoice): Promi
 // A prévia espera o foco parar num tema antes de pintar: andar pela lista não reescreve a cada passo.
 const PREVIEW_DELAY_MS = 200
 let previewTimer: Timer | undefined
+// A pintura de uma prévia já em andamento: quem desfaz ou guarda espera ela acabar, senão ela
+// terminaria depois e deixaria o arquivo do tema com a prévia.
+let previewRun: Promise<void> | null = null
 
-function cancelPreview() {
+/** Cancela a prévia agendada e espera a que já está pintando. */
+async function settlePreview(): Promise<void> {
   previewTimer?.cancel()
   previewTimer = undefined
+  const running = previewRun
+  if (running !== null) await running
 }
 
 /**
@@ -114,21 +120,27 @@ function cancelPreview() {
  * o Claude Code não acompanharia e a prévia mostraria só o fundo do terminal.
  */
 export function schedulePreview($: EngineInterface, slug: string) {
-  cancelPreview()
+  previewTimer?.cancel()
   previewTimer = $.clock.after(PREVIEW_DELAY_MS, () => {
     previewTimer = undefined
-    void (async () => {
+    const run = (async () => {
       const entry = findTheme(slug)
       if (entry === undefined || !(await isLive($))) return
-      await paint($, { kind: 'catalog', entry })
+      // Marcada antes de pintar: um desfazer que chegue no meio sabe que há o que desfazer.
       await update($, previewAtom, () => slug)
+      await paint($, { kind: 'catalog', entry })
     })().catch(() => undefined)
+    previewRun = run
+    void run.then(() => {
+      if (previewRun === run) previewRun = null
+    })
   })
 }
 
-/** Desfaz uma prévia pendente: volta ao tema guardado (o menu fechou, ou saiu da aba Tema). */
-export async function revertPreview($: EngineInterface, previewing: string | null): Promise<void> {
-  cancelPreview()
+/** Desfaz a prévia, se houver: volta ao tema guardado (o menu fechou, ou saiu da aba Tema). */
+export async function revertPreview($: EngineInterface): Promise<void> {
+  await settlePreview()
+  const previewing = await read($, previewAtom)
   if (previewing === null) return
   await update($, previewAtom, () => null)
   const kept = await storedChoice($)
@@ -138,23 +150,27 @@ export async function revertPreview($: EngineInterface, previewing: string | nul
 
 /**
  * Volta ao tema de antes do menu: o valor de `theme` guardado na primeira troca, e o esquema
- * original do perfil do Windows Terminal. Devolve a nota para o menu.
+ * original do perfil do Windows Terminal. Sem esse registro (o menu nunca trocou o tema), o tema
+ * do Claude Code fica como está. Devolve a nota para o menu.
  */
 export async function restoreOriginal($: EngineInterface): Promise<string> {
-  cancelPreview()
+  await settlePreview()
   const before = await $.store.get('themeBefore')
-  const value = typeof before === 'string' && before !== '' ? before : 'dark'
-  let live = false
-  const row = (await $.config.list()).find(r => r.key === 'theme')
-  if (row !== undefined && !row.isLocked) {
-    try {
-      const set = await $.config.set({ key: row.key, value })
-      live = !('deny' in set) || set.deny === undefined
-    } catch {
-      live = false
+  const value = typeof before === 'string' && before !== '' ? before : null
+  let live = true
+  if (value !== null) {
+    live = false
+    const row = (await $.config.list()).find(r => r.key === 'theme')
+    if (row !== undefined && !row.isLocked) {
+      try {
+        const set = await $.config.set({ key: row.key, value })
+        live = !('deny' in set) || set.deny === undefined
+      } catch {
+        live = false
+      }
     }
+    if (!live) await writeUserSetting($, 'theme', value)
   }
-  if (!live) await writeUserSetting($, 'theme', value)
   let wtError: string | null = null
   try {
     await paintWindowsTerminal($, null)
@@ -165,22 +181,28 @@ export async function restoreOriginal($: EngineInterface): Promise<string> {
   await $.store.delete('themeBefore')
   await update($, chosenAtom, () => null)
   await update($, previewAtom, () => null)
-  const parts = [`tema → ${value} (o de antes do menu)`]
+  const parts = [value === null ? 'o menu não trocou o tema do Claude Code: nada a restaurar nele' : `tema → ${value} (o de antes do menu)`]
   if (!live) parts.push('vale a partir do próximo início do Claude Code')
   if (wtError !== null) parts.push(`fundo do terminal não voltou: ${wtError}`)
   return parts.join(' · ')
 }
 
-/** Início de sessão: o nome do tema guardado para o menu e o fundo do terminal repintado. */
+/**
+ * Início de sessão: o nome do tema guardado para o menu, o arquivo do tema regravado a partir da
+ * escolha guardada (uma prévia que tenha ficado no arquivo some) e o fundo do terminal repintado.
+ */
 export async function restoreSession($: EngineInterface): Promise<void> {
   const kept = await storedChoice($)
   await update($, chosenAtom, () => (kept === undefined ? null : choiceName(kept)))
-  // Só com o tema do menu em vigor: trocado pelo /theme, o fundo não deve seguir o menu.
-  if (kept?.kind === 'catalog' && (await isLive($))) await paintWindowsTerminal($, kept.entry).catch(() => false)
+  await update($, previewAtom, () => null)
+  // Só com o tema do menu em vigor: trocado pelo /theme, nem o arquivo nem o fundo seguem o menu.
+  if (kept === undefined || !(await isLive($))) return
+  await writeThemeFile($, kept.kind === 'catalog' ? toClaudeTheme(kept.entry) : baseTheme(kept.base))
+  if (kept.kind === 'catalog') await paintWindowsTerminal($, kept.entry).catch(() => false)
 }
 
-/** Fim de sessão (não um /clear): o perfil do Windows Terminal volta ao esquema dele. */
+/** Fim de sessão (não um /clear): desfaz a prévia e devolve o perfil do Windows Terminal. */
 export async function releaseTerminal($: EngineInterface): Promise<void> {
-  cancelPreview()
-  await paintWindowsTerminal($, null).catch(() => false)
+  await revertPreview($).catch(() => undefined)
+  await releaseWindowsTerminal($).catch(() => false)
 }

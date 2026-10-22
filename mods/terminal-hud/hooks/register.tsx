@@ -257,10 +257,11 @@ export const register: Register = (on, options) => {
     ]
 
     // Sem largura fixa: o engine já desenha o indicador de modo nesta linha e sabe quanto sobra.
-    // Uma linha só: a régua encolhe (cortada no fim) para o que vem depois caber.
+    // Uma linha só: só a régua encolhe (cortada no fim); o que vem depois (o botão do menu) fica
+    // inteiro e ocupa o resto da linha.
     return (
       <Box flexDirection="row" flexGrow={1}>
-        <Box flexShrink={1}>
+        <Box flexShrink={1} overflow="hidden">
           <Text wrap="truncate-end">
             {groups.map((group, i) => (
               <Text key={String(i)}>
@@ -270,7 +271,9 @@ export const register: Register = (on, options) => {
             ))}
           </Text>
         </Box>
-        {tail}
+        <Box flexGrow={1} flexShrink={0}>
+          {tail}
+        </Box>
       </Box>
     )
   })

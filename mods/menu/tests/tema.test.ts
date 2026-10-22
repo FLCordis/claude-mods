@@ -247,26 +247,67 @@ test('lista em janela: a roda rola a lista (sem passar das pontas), e o foco al�
   const wheel = (by: number) =>
     $.ui.scroll({ component: 'Pane', requestId: 'menu', offset: 0, by, bodyRows: 20, contentRows: 20, origin: { kind: 'person' } })
 
-  // 20 linhas de corpo: 7 temas na janela e um a mais desenhado para o foco passar.
-  expect(await listed()).toHaveLength(8)
+  // 20 linhas de corpo: 6 temas na janela, e um além de cada ponta desenhado para o foco passar.
+  expect(await listed()).toHaveLength(7)
   expect((await listed())[0]).toBe('theme:tema-00')
-  expect(await texts(ui)).toMatch(/1–7 de 30/)
+  expect(await texts(ui)).toMatch(/1–6 de 30/)
 
   expect(await wheel(3)).toEqual({})
-  expect((await listed())[0]).toBe('theme:tema-03')
+  expect(await texts(ui)).toMatch(/4–9 de 30/)
+  expect(await listed()).toEqual(['theme:tema-02', 'theme:tema-03', 'theme:tema-04', 'theme:tema-05', 'theme:tema-06', 'theme:tema-07', 'theme:tema-08', 'theme:tema-09'])
   await wheel(100)
-  expect((await listed())[0]).toBe('theme:tema-23')
+  expect(await texts(ui)).toMatch(/25–30 de 30/)
   await wheel(-100)
-  expect((await listed())[0]).toBe('theme:tema-00')
+  expect(await texts(ui)).toMatch(/1–6 de 30/)
 
-  await $.ui.focus({ component: 'Pane', requestId: 'menu', plugin: 'menu', element: 'theme:tema-07', origin: { kind: 'person' } })
-  expect((await listed())[0]).toBe('theme:tema-01')
+  // O foco no tema logo abaixo da janela desce a janela; no logo acima, sobe.
+  const focus = (slug: string) =>
+    $.ui.focus({ component: 'Pane', requestId: 'menu', plugin: 'menu', element: `theme:${slug}`, origin: { kind: 'person' } })
+  await focus('tema-06')
+  expect(await texts(ui)).toMatch(/2–7 de 30/)
 
   // Em outra aba a rolagem é a do engine: a janela da lista não se mexe.
   await $.ui.press({ plugin: 'menu', key: 'tab:sessao' })
   await wheel(5)
   await $.ui.press({ plugin: 'menu', key: 'tab:tema' })
-  expect((await listed())[0]).toBe('theme:tema-01')
+  expect(await texts(ui)).toMatch(/2–7 de 30/)
+
+  await focus('tema-00')
+  expect(await texts(ui)).toMatch(/1–6 de 30/)
+  await ui.unmount()
+})
+
+test('duas sessões no mesmo perfil do Windows Terminal: a que sai primeiro não devolve o esquema da outra', async ($, on) => {
+  mock.clock(on, { now: Date.parse('2026-10-22T12:00:00Z') })
+  const now = Date.parse('2026-10-22T12:00:00Z')
+  const key = '{61c54bbd-c2c6-5271-96e7-009a87ff44bf}'
+  const w = world(on, {
+    env: WT_ENV,
+    files: { [CATALOG_FILE]: CATALOG, [WT_FILE]: WT_TEXT },
+    store: { tab: 'tema', wtSessions: { [key]: { outra: now - 30_000, caduca: now - 10 * 60_000 } } },
+    config: [themeRow('custom:menu')],
+  })
+  await start($)
+  await menu($)
+  const ui = await $.ui.mount(PANE)
+  await $.ui.press({ plugin: 'menu', key: 'theme:nord' })
+  await ui.unmount()
+  type Wt = { profiles: { list: { colorScheme?: string }[] } }
+  await $.session.end({ reason: 'prompt_input_exit', sessionId: 's1', resume: { id: 's1' } })
+  // A outra sessão ainda vive (deu sinal há 30 s): o perfil segue com o tema, e esta sai da lista.
+  expect((JSON.parse(w.files[WT_FILE]!) as Wt).profiles.list[0]?.colorScheme).toBe(WT_SCHEME)
+  expect(Object.keys((w.store.wtSessions as Record<string, Record<string, number>>)[key] ?? {})).toEqual(['outra', 'caduca'])
+})
+
+test('voltar ao tema original sem o menu ter trocado o tema: o tema do Claude Code fica como está', async ($, on) => {
+  const w = world(on, { env: ENV, files: { [CATALOG_FILE]: CATALOG }, store: { tab: 'tema' }, config: [themeRow('light')] })
+  await start($)
+  await menu($)
+  const ui = await $.ui.mount(PANE)
+  await $.ui.press({ plugin: 'menu', key: 'themes:original' })
+  expect(w.sets).toEqual([])
+  expect(settingsWritten(w)).toBeUndefined()
+  expect(await texts(ui)).toMatch(/nada a restaurar/)
   await ui.unmount()
 })
 
@@ -283,6 +324,7 @@ const WT_TEXT = `{
 }`
 
 test('Windows Terminal: o tema pinta o perfil desta aba, e o fim da sessão (não um /clear) devolve o esquema', async ($, on) => {
+  mock.clock(on, { now: Date.parse('2026-10-22T12:00:00Z') })
   const w = world(on, {
     env: WT_ENV,
     files: { [CATALOG_FILE]: CATALOG, [WT_FILE]: WT_TEXT },

@@ -99,6 +99,7 @@ export function world(
   })
   on('session.start', (_$, e) => ({ cwd: e.cwd }))
   on('session.end', (_$, e) => ({ sessionId: e.sessionId }))
+  on('session.id', () => ({ value: 's1' }))
   on('store.delete', (_$, e) => {
     delete w.store[e.key]
     return { value: undefined }

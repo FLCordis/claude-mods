@@ -1,4 +1,4 @@
-import { atom, read, update } from 'claude-code'
+import { atom, update } from 'claude-code'
 import type { EngineInterface, UiOpenResult } from 'claude-code'
 
 import type { MenuTab } from '../types'
@@ -15,7 +15,6 @@ const PANE_COLUMNS = 64
 const tabAtom = atom({ plugin: 'menu', key: 'tab' } as const, 'sessao')
 const noteAtom = atom({ plugin: 'menu', key: 'note' } as const, null)
 const isOpenAtom = atom({ plugin: 'menu', key: 'isOpen' } as const, false)
-const previewAtom = atom({ plugin: 'menu', key: 'previewSlug' } as const, null)
 
 export const TAB_IDS: readonly MenuTab[] = ['sessao', 'tema', 'zen', 'orquestrador', 'hud', 'configs']
 export const isTab = (value: unknown): value is MenuTab => TAB_IDS.some(id => id === value)
@@ -49,7 +48,7 @@ export async function openMenu($: EngineInterface, tab?: MenuTab): Promise<UiOpe
 export async function closeMenu($: EngineInterface): Promise<void> {
   if (await isMenuOpen($)) await $.ui.close({ id: PANE })
   await update($, isOpenAtom, () => false)
-  await revertPreview($, await read($, previewAtom)).catch(() => undefined)
+  await revertPreview($).catch(() => undefined)
 }
 
 /** O botão sob o prompt: fecha o menu aberto, abre o fechado. */

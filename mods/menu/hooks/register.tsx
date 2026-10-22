@@ -12,6 +12,7 @@ import { Sessao, isEffortLevel } from './tabs/sessao'
 import { Tema, scrollThemes, themeWindow } from './tabs/tema'
 import { releaseTerminal, restoreSession, revertPreview, schedulePreview } from './themes/apply'
 import { ensureCatalog, loadCatalog } from './themes/catalog'
+import { HEARTBEAT_MS, heartbeat } from './themes/wt'
 import { PANE, isTab, openMenu, syncOpen } from './toggle'
 
 const tabAtom = atom({ plugin: 'menu', key: 'tab' } as const, 'sessao')
@@ -22,7 +23,6 @@ const commandsAtom = atom({ plugin: 'menu', key: 'commands' } as const, [])
 const modeAtom = atom({ plugin: 'menu', key: 'mode' } as const, null)
 const effortAtom = atom({ plugin: 'menu', key: 'effort' } as const, null)
 const effortChosenAtom = atom({ plugin: 'menu', key: 'effortChosen' } as const, null)
-const previewAtom = atom({ plugin: 'menu', key: 'previewSlug' } as const, null)
 
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
@@ -52,8 +52,10 @@ export const register: Register = on => {
     // O catálogo de temas mora no módulo: um reload o zera, e o disco o devolve. Sem catálogo
     // baixado nada é lido; o download só acontece na primeira ida à aba Tema.
     await loadCatalog($).catch(() => false)
-    // O tema guardado: o nome para o menu e o fundo do Windows Terminal desta aba.
+    // O tema guardado: o nome para o menu e o fundo do Windows Terminal desta aba. Enquanto a
+    // sessão vive, ela dá sinal de vida: outra aba do mesmo perfil não devolve o esquema por baixo dela.
     await restoreSession($).catch(() => undefined)
+    $.clock.every(HEARTBEAT_MS, () => void heartbeat($).catch(() => undefined))
 
     return next(e)
   })
@@ -108,7 +110,7 @@ export const register: Register = on => {
   on('ui.close', { id: PANE }, async ($, e, next) => {
     const closed = await next(e)
     await update($, isOpenAtom, () => false)
-    await revertPreview($, await read($, previewAtom)).catch(() => undefined)
+    await revertPreview($).catch(() => undefined)
     return closed
   }).catch(($, e, next) => next(e))
 
@@ -144,7 +146,7 @@ export const register: Register = on => {
     const onTab = (next: MenuTab) => {
       void (async () => {
         // Saindo da aba Tema, uma prévia não guardada volta ao tema guardado.
-        if (next !== 'tema') await revertPreview($, await read($, previewAtom))
+        if (next !== 'tema') await revertPreview($)
         await update($, tabAtom, () => next)
         await update($, noteAtom, () => null)
         await $.store.set('tab', next)

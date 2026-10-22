@@ -26,11 +26,11 @@ const FILTERS: readonly { id: MenuThemeFilter; label: string }[] = [
 ]
 
 /**
- * Linhas do corpo que não são da lista: as do pane fora do corpo (abas, régua, margem, nota,
- * régua, teclas), as do cabeçalho da aba (atual, aviso, busca, filtros, ações) e uma de folga
- * para as ações que quebram linha num terminal estreito.
+ * Linhas do corpo que não são da janela da lista: as do pane fora do corpo (abas, régua, margem,
+ * nota, régua, teclas), as do cabeçalho da aba (atual, aviso, busca, filtros, ações), uma de folga
+ * para as ações que quebram linha num terminal estreito e uma para o tema logo acima da janela.
  */
-const FIXED_ROWS = 7 + 5 + 1
+const FIXED_ROWS = 7 + 5 + 1 + 1
 
 // As linhas do corpo no último desenho: o hook de foco não recebe a medida e precisa dela.
 let lastBodyRows = 20
@@ -199,8 +199,9 @@ export async function Tema($: EngineInterface, e: PaneEvent, rows: readonly Conf
       </Text>
     ) : null
 
-  // Uma linha a mais que a janela: o foco passa da última visível e a janela vai atrás dele.
-  const items = found.slice(first, first + shown + 1).map(t => {
+  // Um tema além de cada ponta da janela: o foco (setas, Tab) passa da primeira ou da última
+  // visível e a janela vai atrás dele, em vez de o foco pular para as ações.
+  const items = found.slice(Math.max(0, first - 1), first + shown + 1).map(t => {
     const isChosen = chosen === t.name
     const isPreview = preview === t.slug
     return (

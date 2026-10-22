@@ -427,7 +427,11 @@ export const register: Register = (on, options) => {
     const progressLabel = `${finished} de ${lines.length} concluído${lines.length === 1 ? '' : 's'} `
     const progressCells = Math.max(8, Math.min(60, inner - progressLabel.length - 6))
 
+    // O que o engine ou outro mod desenha na faixa continua abaixo da caixa.
+    const below = await next(e)
+
     return (
+      <Box flexDirection="column">
       <Box flexDirection="column" width={width} borderStyle="round" borderColor={border} paddingX={1}>
         {split(
           <Text wrap="truncate-end">
@@ -450,6 +454,8 @@ export const register: Register = (on, options) => {
           <Text color="subtle"> {String(donePct).padStart(3)}%</Text>
         </Text>
         {shown.map(rowOf)}
+      </Box>
+      {below}
       </Box>
     )
   })

@@ -183,7 +183,8 @@ test('faixa acima do prompt: uma linha por agente, e nada quando não há agente
     expect(joined).toMatch(/  ● Explorar schema do banco  Explore · Sonnet 5\.5/)
     expect(await ui.find({ key: 'band-a1' })).toBeDefined()
     expect(await ui.find({ key: 'band-a2' })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /faixa do engine/ })).toBeUndefined()
+    // O que vem de baixo (o engine ou outro mod) continua desenhado sob a caixa.
+    expect(await ui.find({ type: 'Text', text: /faixa do engine/ })).toBeDefined()
     await ui.unmount()
   }
 })
